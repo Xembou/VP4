@@ -51,7 +51,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from krypto import ARGON2_STANDARD, KDF_HKDF, ModernCrypto
+from kern.krypto import ARGON2_STANDARD, KDF_HKDF, ModernCrypto
 
 # Kennzeichnung am Dateianfang.
 MARKE = b"VP4F1"

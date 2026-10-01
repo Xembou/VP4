@@ -47,17 +47,17 @@ os.environ["VP4_TESTMODUS"] = "1"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-import dateien
-import krypto
-import speicher
+from kern import dateien
+from kern import krypto
+from kern import speicher
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 import asyncio
 
 import chat
 from chat import ChatNetwork
-from krypto import (VERFAHREN, SCHLUESSEL_ARTEN, ClassicCiphers, ModernCrypto,
+from kern.krypto import (VERFAHREN, SCHLUESSEL_ARTEN, ClassicCiphers, ModernCrypto,
                     Pruefsummen, Signaturen)
-from speicher import (FalschesPasswortError, KeyStore, ObsidianSync,
+from kern.speicher import (FalschesPasswortError, KeyStore, ObsidianSync,
                       passwort_staerke)
 
 
@@ -554,6 +554,22 @@ def test_formatversionen():
     R.pruefe("Verdrehte KDF-Parameter fallen auf",
              _wirft_valueerror(ModernCrypto.password_decrypt,
                                base64.b64encode(bytes(verbogen)).decode("ascii"), "pw"))
+
+    # Abgelehnt werden muss das VOR dem Ableiten: das Siegel wird erst danach
+    # geprüft. Vorher rechnete Argon2 mit 16 GiB los und scheiterte mit
+    # einem Speicherfehler statt mit "beschädigt".
+    import struct as _struct
+    for zeit, speicher_kib, name in [(3, 0x7FFFFFFF, "riesiger Speicher"),
+                                     (4_000_000_000, 65536, "Milliarden Durchgänge"),
+                                     (3, 1, "winziger Speicher")]:
+        kopf = (b"VP4P2" + bytes([krypto.KDF_ARGON2ID])
+                + _struct.pack("!IIB", zeit, speicher_kib, 1))
+        roh = kopf + b"s" * 16 + b"n" * 12 + b"c" * 32
+        start = time.time()
+        R.pruefe(f"Unmögliche KDF-Parameter werden vor dem Rechnen abgelehnt ({name})",
+                 _wirft_valueerror(ModernCrypto.password_decrypt,
+                                   base64.b64encode(roh).decode("ascii"), "pw")
+                 and time.time() - start < 1.0)
 
     for kaputt, name in [(b"VP4P9" + b"x" * 40, "unbekannte Marke"),
                          (b"VP4P2" + bytes([99]) + b"x" * 40, "unbekannte KDF-Kennung"),
@@ -1418,7 +1434,7 @@ def test_gruppen():
     import discord_transport
     import transport
     from discord_transport import DiscordProtokoll
-    from speicher import GruppenStore
+    from kern.speicher import GruppenStore
 
     class TestFreunde:
         def __init__(self, eintraege=None):

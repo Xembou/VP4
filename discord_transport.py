@@ -66,7 +66,7 @@ import threading
 import time
 
 import chat
-import speicher
+from kern import speicher
 
 
 # Discord lässt höchstens 2000 Zeichen pro Nachricht zu. 1900 lässt Luft

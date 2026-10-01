@@ -32,14 +32,14 @@ from tkinter import filedialog, messagebox, ttk
 import customtkinter as ctk
 
 import chat
-import dateien
+from kern import dateien
 import discord_transport
-import speicher
+from kern import speicher
 import transport
 from transport import ChatVermittler
-from krypto import (VERFAHREN, SCHLUESSEL_ARTEN, ClassicCiphers, ModernCrypto,
+from kern.krypto import (VERFAHREN, SCHLUESSEL_ARTEN, ClassicCiphers, ModernCrypto,
                     Pruefsummen, Signaturen)
-from speicher import (FalschesPasswortError, FriendsStore, KeyStore,
+from kern.speicher import (FalschesPasswortError, FriendsStore, KeyStore,
                       KeyStoreLockedError, ObsidianSync, passwort_staerke)
 
 

@@ -52,8 +52,8 @@ from pathlib import Path
 
 from cryptography.exceptions import InvalidTag
 
-from krypto import ModernCrypto
-import speicher
+from kern.krypto import ModernCrypto
+from kern import speicher
 
 
 # Feste Ports, bewusst unterhalb des dynamischen Bereichs (siehe Kopfkommentar).

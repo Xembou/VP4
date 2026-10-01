@@ -42,7 +42,7 @@ der bequemere Standard.
 
 import chat
 import discord_transport
-import speicher
+from kern import speicher
 
 
 MODI = ("lan", "discord", "beide")

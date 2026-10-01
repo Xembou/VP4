@@ -435,8 +435,31 @@ ARGON2_STANDARD = {
 }
 
 
+# Was in einem Dateikopf höchstens stehen darf. Der Kopf ist zwar per AAD
+# mitversiegelt - aber geprüft wird das Siegel erst NACH dem Ableiten. Ohne
+# diese Grenzen rechnet das Programm also zuerst mit dem, was ein
+# Angreifer hineingeschrieben hat: ein einziges gekipptes Bit machte aus
+# 64 MiB Argon2-Speicher 16 GiB, und statt "falsches Passwort" kam ein
+# Speicherfehler (oder der Rechner war minutenlang beschäftigt).
+KDF_GRENZEN = {
+    "zeit": (1, 20),
+    "speicher_kib": (8 * 1024, 1024 * 1024),     # 8 MiB bis 1 GiB
+    "parallel": (1, 16),
+    "runden": (1_000, 10_000_000),
+}
+
+
 class ModernCrypto:
     """Echte Verschlüsselung. Alles hier gilt als sicher."""
+
+    @staticmethod
+    def _kdf_grenzen_pruefen(kdf: dict):
+        """Lehnt Ableitungs-Einstellungen ab, die kein VP4 je schreiben würde."""
+        for feld, (unten, oben) in KDF_GRENZEN.items():
+            if feld in kdf and not unten <= kdf[feld] <= oben:
+                raise ValueError(
+                    "Die Einstellungen im Dateikopf sind unmöglich - die Daten "
+                    "sind beschädigt oder wurden verändert.")
 
     # ----------------------------------------------- Schlüssel aus Passwort
 
@@ -552,6 +575,7 @@ class ModernCrypto:
             zeit, speicher, parallel = struct.unpack("!IIB", werte)
             kdf = {"kdf": art, "zeit": zeit, "speicher_kib": speicher,
                    "parallel": parallel}
+        ModernCrypto._kdf_grenzen_pruefen(kdf)
 
         kopf = roh[:len(marke) + 1 + laenge + 16]
         return kopf, kdf, salt
