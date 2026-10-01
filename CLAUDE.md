@@ -62,8 +62,11 @@ Der vollständige Bauplan mit allen Entscheidungen steht in
       js/bruecke.js     pywebview / HTTP / Demo, Ereignisse per Abfrage alle 200 ms
       js/demo.js        erfundene Daten für ?demo=1 (nur Screenshots)
     tests/              Prüfmodule (pruefen(R, hilfen)); test_vp4.py führt alle aus
+      test_windows.py   nur unter Windows: DPAPI, WebView2, Sockets - echt, ohne Attrappen
       ui_pruefung.py    Chromium/Playwright: jede Ansicht + echter Zwei-Personen-Durchlauf
     werkzeuge/icons_bauen.py   baut ui/icons/sprite.svg aus Lucide
+    werkzeuge/exe_probelauf.py startet die .exe im Selbsttest-Modus (bauen.py, pruefen.yml)
+    .github/workflows/  pruefen.yml (jeder Push, Windows) und release.yml (Tag -> Release)
 
 Abhängigkeiten: `requirements.txt` (pywebview, cryptography ≥ 50, argon2-cffi,
 PyNaCl, pyrage, discord.py, pillow). Zum Testen der Oberfläche zusätzlich
@@ -204,17 +207,25 @@ Gebaut und hier (Linux, Python 3.13) getestet: alle Module, 660+ Prüfungen,
 Oberfläche in Chromium mit Screenshots, echter Zwei-Personen-Durchlauf durch
 die Oberfläche. Das Repository liegt unter <https://github.com/Xembou/VP4>.
 
-### Noch nicht auf echtem Windows ausprobiert – zuerst prüfen
-- **Das pywebview-Fenster selbst** (WebView2, `create_window`, Datei-Dialoge,
-  `pywebviewFullPath` beim Hineinziehen, Mikrofon-Freigabe für
-  Sprachnachrichten, dunkle Titelleiste/Mica).
-- **DPAPI** (`kern/tresor.DPAPI`) – nur die Attrappe ist getestet.
-- **Die `.exe`** aus `bauen.py`/Workflow mit pywebview + pythonnet (Größe,
-  ob `ui/` mitkommt).
+### Auf echtem Windows geprüft (GitHub Actions, `pruefen.yml`, 01.10.2026)
+Bei jedem Push läuft `.github/workflows/pruefen.yml` auf `windows-latest`:
+der ganze Selbsttest inklusive Oberflächen-Prüfung in Chromium und
+`tests/test_windows.py`, danach ein Bau der `.exe` OHNE Discord-Zugang samt
+Probelauf (`werkzeuge/exe_probelauf.py`, `VP4_SELBSTTEST_START`).
+Bestätigt: DPAPI (Tresor öffnet still, auch nach Passwortwechsel),
+WebView2 + pywebview (Edge Chromium), feste Ports 41230/41231, WLAN-Chat
+über 127.0.0.1, Medien-Server, die `.exe` (27,9 MB) öffnet ihr Fenster, die
+Oberfläche steht, sie beendet sich sauber. Dabei aufgefallen und behoben:
+`socket.SIO_UDP_CONNRESET` gibt es in Python nicht (jetzt WSAIoctl), age
+liefert unter Windows `\r\n`.
+
+### Noch nicht ausprobiert – zuerst prüfen
+- **Echte Bedienung im Fenster** auf Leons PC: Datei-Dialoge,
+  `pywebviewFullPath` beim Hineinziehen, Mikrofon für Sprachnachrichten,
+  dunkle Titelleiste/Mica, Taskleiste blinkt bei neuer Nachricht.
 - **Echter Discord** mit dem neuen Protokoll (Login, Nachholen, Anhänge,
   429, Kanalrechte) – der Sandbox-Proxy lässt discord.com nicht durch.
-- **WLAN zwischen zwei echten PCs** und die Windows-Firewall (schon in 4.x
-  offen).
+- **WLAN zwischen zwei echten PCs** und die Windows-Firewall-Abfrage.
 
 ### Ideen für später (mit Leon besprechen)
 - Forward Secrecy (Double Ratchet) für DMs.
