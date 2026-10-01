@@ -1,0 +1,138 @@
+/* =====================================================================
+   seiten.css - Einrichtung, Sperre, Einstellungen, Werkzeuge
+   ===================================================================== */
+
+/* --- Einrichtung und Sperrbildschirm: eine Glaskarte über der Tapete ----- */
+.vollbild { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; padding: 24px; }
+.einrichtung {
+  width: min(500px, 100%);
+  border-radius: 30px;
+  padding: 36px 40px 30px;
+  animation: blatt-rein var(--dauer-lang) var(--feder);
+}
+.einrichtung .logo {
+  width: 72px; height: 72px; border-radius: 20px; margin: 0 auto 18px;
+  display: grid; place-items: center;
+  background: linear-gradient(160deg, color-mix(in srgb, var(--akzent) 70%, white), var(--akzent));
+  color: #FFFFFF;
+  box-shadow: 0 10px 30px color-mix(in srgb, var(--akzent) 45%, transparent), inset 0 1px 0 rgba(255, 255, 255, .5);
+}
+.einrichtung .logo .ic { width: 34px; height: 34px; stroke-width: 1.6; }
+.einrichtung h1 { font: var(--t-gross); text-align: center; margin: 0 0 8px; letter-spacing: -.02em; }
+.einrichtung .unter { text-align: center; color: var(--text-2); margin: 0 0 26px; }
+.einrichtung .punkte { display: flex; justify-content: center; gap: 7px; margin-top: 22px; }
+.einrichtung .punkte i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); opacity: .5; transition: all var(--dauer) var(--feder); }
+.einrichtung .punkte i.an { width: 22px; border-radius: 4px; background: var(--akzent); opacity: 1; }
+.einrichtung .schritt { animation: schritt-rein var(--dauer-lang) var(--feder); }
+@keyframes schritt-rein { from { opacity: 0; transform: translateX(20px); } }
+.einrichtung .knoepfe { display: flex; gap: 10px; margin-top: 22px; }
+.einrichtung .knoepfe .knopf { flex: 1; }
+.punktliste { margin: 0 0 6px; padding: 0; list-style: none; display: grid; gap: 12px; }
+.punktliste li { display: flex; gap: 12px; align-items: flex-start; }
+.punktliste .symbol { width: 34px; height: 34px; border-radius: 10px; display: grid; place-items: center; flex: none; color: #FFFFFF; }
+.punktliste b { display: block; font: var(--t-kopf); }
+.punktliste span { font: var(--t-hinweis); color: var(--text-2); }
+.farbwahl { display: flex; gap: 10px; flex-wrap: wrap; }
+.farbwahl button {
+  width: 28px; height: 28px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--f); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .1);
+  transition: transform var(--dauer-kurz) var(--feder);
+}
+.farbwahl button:hover { transform: scale(1.1); }
+.farbwahl button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--flaeche), 0 0 0 4px var(--f); }
+.ankreuzen { display: flex; gap: 10px; align-items: flex-start; font: var(--t-hinweis); color: var(--text-2); cursor: pointer; margin: 12px 0 0; }
+.ankreuzen input { margin-top: 2px; accent-color: var(--akzent); width: 16px; height: 16px; flex: none; }
+.id-gross {
+  font: 600 30px/1 var(--schrift-mono); letter-spacing: .06em; text-align: center;
+  padding: 22px 12px; border-radius: var(--r-karte); background: var(--flaeche-hover);
+  margin: 0 0 14px; user-select: text;
+}
+
+/* --- Einstellungen -------------------------------------------------------- */
+.einstellungen { position: absolute; inset: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.einstellungen nav { padding: 22px 10px; border-right: 1px solid var(--trenner); overflow-y: auto; }
+.einstellungen nav h1 { font: var(--t-titel); padding: 0 10px; margin: 0 0 14px; }
+.einstellungen nav button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  height: 34px; padding: 0 8px; margin-bottom: 2px;
+  border: 0; border-radius: 9px; background: transparent; color: var(--text);
+  font: var(--t-text); font-weight: 500; text-align: left; cursor: pointer;
+}
+.einstellungen nav button:hover { background: var(--flaeche-hover); }
+.einstellungen nav button[aria-selected="true"] { background: var(--akzent); color: var(--akzent-text); }
+.einstellungen nav .symbol { width: 24px; height: 24px; border-radius: 6px; display: grid; place-items: center; color: #FFFFFF; flex: none; }
+.einstellungen nav .symbol .ic { width: 15px; height: 15px; }
+.einstellungen .rechts { overflow-y: auto; padding: 26px 36px 40px; background: transparent; }
+:root:not([data-theme="dark"]) .einstellungen .rechts { background: rgba(242, 242, 247, .7); }
+.einstellungen .rechts h2 { font: var(--t-titel); margin: 0 0 18px; }
+.einstellungen .rechts .inhalt-schmal { max-width: 640px; }
+.tapetenwahl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 12px 16px 14px; }
+.tapetenwahl button {
+  display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: 10px; border: 0; cursor: pointer;
+  background: var(--vorschau); box-shadow: inset 0 0 0 1px rgba(0, 0, 0, .08);
+}
+.tapetenwahl button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--flaeche), 0 0 0 4px var(--akzent); }
+.tapetenwahl small { display: block; text-align: center; font: var(--t-mini); color: var(--text-2); margin-top: 4px; }
+
+/* --- Werkzeuge -------------------------------------------------------------- */
+.werkzeug-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.werkzeug-karte {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 18px; border-radius: var(--r-karte);
+  background: var(--flaeche); box-shadow: var(--schatten-karte);
+  cursor: pointer; border: 0; text-align: left; color: var(--text);
+  transition: transform var(--dauer) var(--feder), box-shadow var(--dauer);
+}
+.werkzeug-karte:hover { transform: translateY(-2px); box-shadow: 0 10px 30px rgba(0, 0, 0, .1), var(--schatten-karte); }
+.werkzeug-karte .symbol { width: 40px; height: 40px; border-radius: 11px; display: grid; place-items: center; color: #FFFFFF; }
+.werkzeug-karte b { font: var(--t-titel3); }
+.werkzeug-karte span { font: var(--t-hinweis); color: var(--text-2); }
+
+.werkbank { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1180px) { .werkbank { grid-template-columns: 1fr; } }
+.werkbank .karte h3 { font: var(--t-kopf); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+.verfahrenswahl {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 52px; padding: 8px 12px; margin-bottom: 14px;
+  border: 0; border-radius: var(--r-feld); background: var(--feld); color: var(--text);
+  cursor: pointer; text-align: left;
+}
+.verfahrenswahl:hover { background: var(--flaeche-aktiv); }
+.verfahrenswahl .titel { flex: 1; min-width: 0; }
+.verfahrenswahl .titel b { display: block; font: var(--t-kopf); }
+.verfahrenswahl .titel small { display: block; font: var(--t-klein); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verfahrensliste { width: 360px; max-height: 440px; overflow-y: auto; padding: 6px; border-radius: 16px; }
+.verfahrensliste .gruppe-name { font: var(--t-mini); font-weight: 600; color: var(--text-3); padding: 10px 10px 4px; display: flex; gap: 6px; align-items: center; }
+.verfahrensliste button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: 9px;
+  background: transparent; color: var(--text); text-align: left; cursor: pointer;
+  font: var(--t-text);
+}
+.verfahrensliste button:hover { background: var(--flaeche-aktiv); }
+.verfahrensliste button[aria-checked="true"] { background: var(--akzent); color: var(--akzent-text); }
+.verfahrensliste button[aria-checked="true"] .marke { background: rgba(255, 255, 255, .22); color: var(--akzent-text); }
+.ausgabe {
+  min-height: 140px; padding: 12px; border-radius: var(--r-feld);
+  background: var(--flaeche-hover); font: 13px/19px var(--schrift-mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; color: var(--text);
+}
+.ausgabe.leer-hinweis { font: var(--t-hinweis); color: var(--text-3); display: grid; place-items: center; text-align: center; }
+.ablagezone {
+  display: grid; place-items: center; align-content: center; gap: 10px;
+  min-height: 200px; border-radius: var(--r-karte);
+  border: 2px dashed var(--trenner); color: var(--text-2); text-align: center;
+  transition: border-color var(--dauer-kurz), background var(--dauer-kurz);
+  cursor: pointer;
+}
+.ablagezone:hover, .ablagezone.drueber { border-color: var(--akzent); background: var(--akzent-weich); color: var(--akzent); }
+.auftrag { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.auftrag + .auftrag { border-top: 1px solid var(--trenner); }
+.auftrag .mitte { flex: 1; min-width: 0; }
+.auftrag b { font: var(--t-kopf); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.auftrag small { font: var(--t-klein); color: var(--text-2); }
+.schluesselzeile { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.schluesselzeile + .schluesselzeile { border-top: 1px solid var(--trenner); }
+.schluesselzeile .mitte { flex: 1; min-width: 0; }
+.schluesselzeile b { font: var(--t-kopf); }
+.schluesselzeile small { display: block; font: var(--t-klein); color: var(--text-3); }

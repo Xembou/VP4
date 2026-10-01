@@ -1,0 +1,339 @@
+/* =====================================================================
+   komponenten.css - Knöpfe, Felder, Listen, Blätter, Menüs
+   =====================================================================
+   Wichtig (Lehre aus 4.x): Jedes gefüllte Element setzt seine Textfarbe
+   ausdrücklich. Sonst steht bei einem hellen Akzent grauer Text auf
+   hellem Grund.
+   ===================================================================== */
+
+/* --- Knöpfe ---------------------------------------------------------- */
+.knopf {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--a2);
+  min-height: 36px;
+  padding: 0 var(--a4);
+  border: 0;
+  border-radius: var(--r-kapsel);
+  font: var(--t-kopf);
+  color: var(--text);
+  background: var(--feld);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--dauer-kurz) var(--feder),
+              background var(--dauer-kurz) var(--sanft),
+              opacity var(--dauer-kurz);
+}
+.knopf:hover { background: var(--flaeche-aktiv); }
+.knopf:active { transform: scale(.97); }
+.knopf:disabled { opacity: .45; cursor: default; transform: none; }
+.knopf.primaer { background: var(--akzent); color: var(--akzent-text); }
+.knopf.primaer:hover { filter: brightness(1.06); }
+.knopf.gefahr { background: var(--rot); color: #FFFFFF; }
+.knopf.leise { background: transparent; color: var(--akzent); padding: 0 var(--a2); }
+.knopf.leise:hover { background: var(--akzent-weich); }
+.knopf.gross { min-height: 44px; padding: 0 var(--a6); font-size: 15px; }
+.knopf.breit { width: 100%; }
+
+/* Runde Symbol-Knöpfe (Werkzeugleiste, Eingabezeile) */
+.rund {
+  display: inline-grid; place-items: center;
+  width: 34px; height: 34px;
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--dauer-kurz), color var(--dauer-kurz),
+              transform var(--dauer-kurz) var(--feder);
+}
+.rund:hover { background: var(--flaeche-hover); color: var(--text); }
+.rund:active { transform: scale(.92); }
+.rund.an { color: var(--akzent); }
+.rund.gefuellt { background: var(--akzent); color: var(--akzent-text); }
+.rund.gefuellt:hover { filter: brightness(1.06); background: var(--akzent); color: var(--akzent-text); }
+.rund.klein { width: 28px; height: 28px; }
+
+/* --- Felder ---------------------------------------------------------- */
+.feld {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px var(--a3);
+  border: 1px solid transparent;
+  border-radius: var(--r-feld);
+  background: var(--feld);
+  color: var(--text);
+  font: var(--t-text);
+  user-select: text;
+  transition: box-shadow var(--dauer-kurz), background var(--dauer-kurz);
+}
+.feld::placeholder { color: var(--text-3); }
+.feld:focus { box-shadow: 0 0 0 4px var(--akzent-ring); background: var(--flaeche); border-color: var(--akzent); }
+textarea.feld { resize: none; line-height: 20px; }
+.feld.mono { font-family: var(--schrift-mono); font-size: 13px; }
+.feld.fehler { border-color: var(--rot); box-shadow: 0 0 0 4px rgba(255, 56, 60, .18); }
+
+.beschriftung { display: block; font: var(--t-klein); color: var(--text-2); margin: 0 0 6px 4px; }
+.feldgruppe { display: flex; flex-direction: column; gap: var(--a1); margin-bottom: var(--a4); }
+.zeile-felder { display: flex; gap: var(--a2); align-items: center; }
+
+/* Suchfeld als Kapsel */
+.suche {
+  display: flex; align-items: center; gap: var(--a2);
+  height: 34px; padding: 0 var(--a3);
+  border-radius: var(--r-kapsel);
+  background: var(--feld);
+  color: var(--text-3);
+}
+.suche input {
+  flex: 1; min-width: 0; border: 0; background: transparent; outline: none;
+  font: var(--t-text); color: var(--text); user-select: text;
+}
+.suche input::placeholder { color: var(--text-3); }
+.suche kbd {
+  font: var(--t-mini); color: var(--text-3);
+  padding: 1px 6px; border-radius: 6px; background: var(--flaeche-hover);
+}
+
+/* --- Segmentschalter -------------------------------------------------- */
+.segment {
+  position: relative;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: var(--r-kapsel);
+  background: var(--feld);
+}
+.segment button {
+  position: relative; z-index: 1;
+  height: 28px; border: 0; background: transparent;
+  border-radius: var(--r-kapsel);
+  font: var(--t-klein); font-weight: 600; color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: color var(--dauer-kurz);
+}
+.segment button[aria-selected="true"] { color: var(--text); }
+.segment .pille {
+  position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px;
+  border-radius: var(--r-kapsel);
+  background: var(--flaeche);
+  box-shadow: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .04);
+  transition: transform var(--dauer) var(--feder), width var(--dauer) var(--feder);
+}
+:root[data-theme="dark"] .segment .pille { background: #636366; }
+
+/* --- Schalter (iOS) ---------------------------------------------------- */
+.schalter {
+  position: relative; flex: none;
+  width: 40px; height: 24px;
+  border: 0; border-radius: var(--r-kapsel);
+  background: var(--feld);
+  cursor: pointer;
+  transition: background var(--dauer) var(--feder);
+}
+.schalter::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: #FFFFFF;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, .2), 0 0 0 .5px rgba(0, 0, 0, .05);
+  transition: transform var(--dauer) var(--feder);
+}
+.schalter[aria-checked="true"] { background: var(--gruen); }
+.schalter[aria-checked="true"]::after { transform: translateX(16px); }
+
+/* --- Gruppierte Listen (wie in den Systemeinstellungen) ---------------- */
+.gruppe {
+  background: var(--flaeche);
+  border-radius: var(--r-karte);
+  box-shadow: var(--schatten-karte);
+  overflow: hidden;
+  margin-bottom: var(--a5);
+}
+.gruppe-titel { font: var(--t-klein); font-weight: 600; color: var(--text-2); margin: 0 0 6px var(--a4); }
+.gruppe-fuss { font: var(--t-klein); color: var(--text-3); margin: -12px var(--a4) var(--a5); }
+.eintrag {
+  display: flex; align-items: center; gap: var(--a3);
+  min-height: 44px; padding: 8px var(--a4);
+  position: relative;
+}
+.eintrag + .eintrag::before {
+  content: ""; position: absolute; top: 0; left: var(--a4); right: 0;
+  height: 1px; background: var(--trenner); transform: scaleY(.5);
+}
+.eintrag .titel { flex: 1; min-width: 0; }
+.eintrag .titel small { display: block; font: var(--t-klein); color: var(--text-3); }
+.eintrag .wert { color: var(--text-2); font: var(--t-hinweis); }
+.eintrag.klickbar { cursor: pointer; }
+.eintrag.klickbar:hover { background: var(--flaeche-hover); }
+.eintrag .symbol {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border-radius: 7px; color: #FFFFFF; flex: none;
+}
+
+/* --- Karten ----------------------------------------------------------- */
+.karte {
+  background: var(--flaeche);
+  border-radius: var(--r-karte);
+  box-shadow: var(--schatten-karte);
+  padding: var(--a5);
+}
+
+/* --- Abzeichen, Marken ----------------------------------------------- */
+.zaehler {
+  display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: var(--r-kapsel);
+  background: var(--akzent); color: var(--akzent-text);
+  font: 700 11px/1 var(--schrift);
+}
+.zaehler.grau { background: var(--text-3); color: #FFFFFF; }
+.marke {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px; padding: 0 8px;
+  border-radius: var(--r-kapsel);
+  font: var(--t-mini);
+  background: var(--flaeche-hover); color: var(--text-2);
+  white-space: nowrap;
+}
+.marke.sicher { background: rgba(52, 199, 89, .16); color: #1E8E3E; }
+.marke.pq { background: rgba(97, 85, 245, .15); color: var(--indigo); }
+.marke.spiel { background: rgba(255, 141, 40, .16); color: #B85C00; }
+:root[data-theme="dark"] .marke.sicher { color: var(--gruen); }
+:root[data-theme="dark"] .marke.spiel { color: var(--orange); }
+
+/* --- Avatar ------------------------------------------------------------ */
+.avatar {
+  position: relative; flex: none;
+  display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  color: #FFFFFF; font: 600 15px/1 var(--schrift-titel);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--farbe, #8E8E93) 82%, white), var(--farbe, #8E8E93));
+  text-shadow: 0 1px 1px rgba(0, 0, 0, .12);
+}
+.avatar.klein { width: 28px; height: 28px; font-size: 11px; }
+.avatar.mittel { width: 34px; height: 34px; font-size: 13px; }
+.avatar.gross { width: 72px; height: 72px; font-size: 26px; }
+.avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.avatar.community { border-radius: 12px; }
+.avatar .punkt {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--gruen);
+  box-shadow: 0 0 0 2px var(--flaeche);
+}
+
+/* --- Blätter (Dialoge) -------------------------------------------------- */
+.abdunkler {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: var(--abdunkeln);
+  animation: einblenden var(--dauer) var(--sanft);
+}
+.blatt {
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  border-radius: var(--r-blatt);
+  padding: var(--a6);
+  background: var(--glas-fuellung-stark);
+  -webkit-backdrop-filter: blur(40px) saturate(190%);
+  backdrop-filter: blur(40px) saturate(190%);
+  border: 1px solid var(--glas-rand);
+  box-shadow: inset 0 1px 0 var(--glas-licht), var(--schatten-hoch);
+  animation: blatt-rein var(--dauer-lang) var(--feder);
+}
+:root[data-transparenz="aus"] .blatt { background: var(--glas-solide); backdrop-filter: none; }
+.blatt h2 { font: var(--t-titel); margin: 0 0 var(--a2); letter-spacing: -.01em; }
+.blatt p { margin: 0 0 var(--a4); color: var(--text-2); }
+.blatt .aktionen { display: flex; justify-content: flex-end; gap: var(--a2); margin-top: var(--a5); }
+.blatt .kopfsymbol {
+  width: 52px; height: 52px; border-radius: 14px;
+  display: grid; place-items: center; margin-bottom: var(--a4);
+  background: var(--akzent-weich); color: var(--akzent);
+}
+.blatt.weg { animation: blatt-raus var(--dauer) var(--feder) forwards; }
+.abdunkler.weg { animation: ausblenden var(--dauer) var(--sanft) forwards; }
+
+@keyframes einblenden { from { opacity: 0; } }
+@keyframes ausblenden { to { opacity: 0; } }
+@keyframes blatt-rein { from { opacity: 0; transform: translateY(24px) scale(.98); } }
+@keyframes blatt-raus { to { opacity: 0; transform: translateY(12px) scale(.98); } }
+
+/* --- Kontextmenü -------------------------------------------------------- */
+.menue {
+  position: fixed; z-index: 60;
+  min-width: 210px; width: max-content; max-width: 360px; padding: 6px;
+  border-radius: 14px;
+  animation: menue-rein var(--dauer) var(--feder);
+  transform-origin: var(--ursprung, top left);
+}
+.menue button {
+  display: flex; align-items: center; gap: var(--a3);
+  width: 100%; height: 32px; padding: 0 10px;
+  border: 0; border-radius: 8px;
+  background: transparent; color: var(--text);
+  font: var(--t-text); text-align: left; cursor: pointer;
+}
+.menue button:hover, .menue button:focus-visible { background: var(--akzent); color: var(--akzent-text); box-shadow: none; }
+.menue button.gefahr { color: var(--rot); }
+.menue button.gefahr:hover { background: var(--rot); color: #FFFFFF; }
+.menue hr { border: 0; height: 1px; background: var(--trenner); margin: 5px 8px; }
+.menue .reaktionsleiste { display: flex; gap: 2px; padding: 2px 2px 6px; }
+.menue .reaktionsleiste button { width: 36px; height: 36px; padding: 0; justify-content: center; font-size: 20px; border-radius: 50%; }
+.menue .reaktionsleiste button:hover { background: var(--flaeche-aktiv); color: inherit; transform: scale(1.15); }
+@keyframes menue-rein { from { opacity: 0; transform: scale(.94); } }
+
+/* --- Hinweise oben (Toast) ---------------------------------------------- */
+.toasts {
+  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+.toast {
+  display: flex; align-items: center; gap: var(--a2);
+  padding: 10px 16px; border-radius: var(--r-kapsel);
+  font: var(--t-hinweis); font-weight: 500;
+  pointer-events: auto;
+  animation: toast-rein var(--dauer-lang) var(--feder);
+}
+.toast.fehler .ic { color: var(--rot); }
+.toast.ok .ic { color: var(--gruen); }
+.toast.weg { animation: ausblenden var(--dauer) forwards; }
+@keyframes toast-rein { from { opacity: 0; transform: translateY(-16px) scale(.96); } }
+
+/* --- Banner (in einer Fläche) ------------------------------------------ */
+.banner {
+  display: flex; gap: var(--a3); align-items: flex-start;
+  padding: var(--a3) var(--a4);
+  border-radius: var(--r-feld);
+  font: var(--t-hinweis);
+  background: var(--akzent-weich); color: var(--text);
+}
+.banner .ic { color: var(--akzent); margin-top: 1px; }
+.banner.warnung { background: rgba(255, 141, 40, .14); }
+.banner.warnung .ic { color: var(--orange); }
+.banner.gefahr { background: rgba(255, 56, 60, .12); }
+.banner.gefahr .ic { color: var(--rot); }
+.banner b { font-weight: 600; }
+
+/* Fortschritt */
+.fortschritt { height: 6px; border-radius: var(--r-kapsel); background: var(--feld); overflow: hidden; }
+.fortschritt > div { height: 100%; width: 0; background: var(--akzent); border-radius: inherit; transition: width var(--dauer) var(--sanft); }
+
+/* Passwortstärke */
+.staerke { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+.staerke span { height: 4px; border-radius: 2px; background: var(--feld); transition: background var(--dauer); }
+
+/* Leerer Zustand */
+.leer {
+  display: grid; place-items: center; align-content: center; gap: var(--a3);
+  height: 100%; text-align: center; color: var(--text-2);
+  padding: var(--a8);
+}
+.leer .kreis {
+  width: 72px; height: 72px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--akzent-weich); color: var(--akzent);
+}
+.leer h3 { font: var(--t-titel3); color: var(--text); margin: 0; }
+.leer p { margin: 0; max-width: 340px; }
+
+kbd { font-family: var(--schrift); }

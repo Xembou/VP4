@@ -1,0 +1,132 @@
+/* =====================================================================
+   rahmen.css - Aufteilung des Fensters und die Seitenleiste
+   ===================================================================== */
+
+#app {
+  position: relative; z-index: 1;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--leiste-breite, 304px) minmax(0, 1fr);
+  gap: 10px;
+  padding: 10px;
+}
+
+/* --- Seitenleiste: schwebendes Glas ------------------------------------ */
+.seitenleiste {
+  display: flex; flex-direction: column;
+  min-height: 0;
+  border-radius: var(--r-fenster);
+  padding: 12px 10px 10px;
+  overflow: hidden;
+}
+.leiste-kopf { display: flex; flex-direction: column; gap: 10px; padding: 0 2px 10px; }
+.leiste-titelzeile { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0 8px; }
+.leiste-titelzeile h1 { font: var(--t-gross); font-size: 24px; line-height: 30px; letter-spacing: -.02em; margin: 0; }
+.leiste-liste { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -4px; padding: 0 4px; }
+.leiste-abschnitt { font: var(--t-mini); font-weight: 600; color: var(--text-3); padding: 12px 10px 4px; }
+
+.chatzeile {
+  display: flex; align-items: center; gap: 11px;
+  height: 62px; padding: 0 10px;
+  border-radius: var(--r-zeile);
+  cursor: pointer;
+  transition: background var(--dauer-kurz);
+}
+.chatzeile:hover { background: var(--flaeche-hover); }
+.chatzeile[aria-selected="true"] { background: var(--akzent); color: var(--akzent-text); }
+.chatzeile[aria-selected="true"] .vorschau,
+.chatzeile[aria-selected="true"] .zeit,
+.chatzeile[aria-selected="true"] .stumm { color: color-mix(in srgb, var(--akzent-text) 80%, transparent); }
+.chatzeile[aria-selected="true"] .zaehler { background: var(--akzent-text); color: var(--akzent); }
+.chatzeile[aria-selected="true"] .avatar .punkt { box-shadow: 0 0 0 2px var(--akzent); }
+.chatzeile .mitte { flex: 1; min-width: 0; }
+.chatzeile .oben { display: flex; align-items: baseline; gap: 8px; }
+.chatzeile .name { flex: 1; min-width: 0; font: var(--t-kopf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chatzeile .zeit { font: var(--t-klein); color: var(--text-3); flex: none; }
+.chatzeile .unten { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.chatzeile .vorschau {
+  flex: 1; min-width: 0; font: var(--t-hinweis); color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chatzeile .stumm { color: var(--text-3); }
+.chatzeile.kanal { height: 36px; padding-left: 12px; gap: 8px; }
+.chatzeile.kanal .name { font: var(--t-text); font-weight: 500; }
+.chatzeile.kanal .ic { color: var(--text-3); }
+.chatzeile.kanal[aria-selected="true"] .ic { color: var(--akzent-text); }
+.chatzeile.kanal.ungelesen .name { font-weight: 700; }
+
+.werkzeugzeile {
+  display: flex; align-items: center; gap: 12px;
+  height: 44px; padding: 0 10px; border-radius: var(--r-zeile);
+  cursor: pointer; font: var(--t-text); font-weight: 500;
+}
+.werkzeugzeile:hover { background: var(--flaeche-hover); }
+.werkzeugzeile[aria-selected="true"] { background: var(--akzent); color: var(--akzent-text); }
+.werkzeugzeile .symbol {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: 8px;
+  color: #FFFFFF; flex: none;
+}
+.werkzeugzeile[aria-selected="true"] .symbol { box-shadow: 0 0 0 1.5px rgba(255, 255, 255, .5); }
+
+.community-kopf { display: flex; align-items: center; gap: 10px; padding: 6px 6px 10px; }
+.community-kopf .name { flex: 1; min-width: 0; font: var(--t-titel3); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+.leiste-fuss {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 8px 6px 2px 8px;
+  border-top: 1px solid var(--trenner);
+}
+.leiste-fuss .ich {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  cursor: pointer; border-radius: 12px; padding: 4px; margin: -4px;
+}
+.leiste-fuss .ich:hover { background: var(--flaeche-hover); }
+.leiste-fuss .ich b { display: block; font: var(--t-kopf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.leiste-fuss .ich span { display: block; font: var(--t-mini); color: var(--text-3); font-family: var(--schrift-mono); white-space: nowrap; }
+.verbindungspunkt {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--text-3); box-shadow: 0 0 0 2px var(--glas-solide);
+}
+.verbindungspunkt.an { background: var(--gruen); }
+.verbindungspunkt.fehler { background: var(--rot); }
+
+/* --- Hauptfläche --------------------------------------------------------- */
+.haupt {
+  position: relative;
+  min-width: 0; min-height: 0;
+  border-radius: var(--r-fenster);
+  background: var(--hauptflaeche);
+  box-shadow: 0 0 0 .5px var(--rand), 0 10px 40px rgba(0, 0, 0, .08);
+  overflow: hidden;
+}
+:root[data-transparenz="aus"] .haupt { background: var(--flaeche); }
+
+/* Schmales Fenster: Seitenleiste wird zur Symbolleiste */
+@media (max-width: 1100px) {
+  #app { --leiste-breite: 268px; }
+}
+.nur-schmal { display: none; }
+@media (max-width: 1000px) {
+  #app { --leiste-breite: 84px; }
+  .seitenleiste .weg-wenn-schmal { display: none !important; }
+  .seitenleiste .nur-schmal { display: inline-flex; }
+  .seitenleiste .segment { grid-auto-flow: row; gap: 4px; padding: 4px; border-radius: 18px; }
+  .seitenleiste .segment button { height: 34px; }
+  .seitenleiste .segment .pille { display: none; }
+  .seitenleiste .segment button[aria-selected="true"] { background: var(--flaeche); box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+  .chatzeile, .werkzeugzeile { justify-content: center; padding: 0; }
+  .chatzeile .mitte { display: none; }
+  .community-kopf { flex-direction: column; }
+  .chatzeile.kanal .name, .chatzeile.kanal .zaehler { display: none; }
+  .chatzeile.kanal.ungelesen::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--akzent); margin-left: 2px; }
+  .leiste-fuss { flex-direction: column; gap: 6px; padding: 8px 0 2px; }
+  .leiste-fuss .ich { flex: none; margin: 0; }
+}
+
+/* --- Seiten in der Hauptfläche ------------------------------------------- */
+.seite { position: absolute; inset: 0; overflow-y: auto; padding: 28px 36px 40px; }
+.seite-kopf { display: flex; align-items: flex-end; gap: var(--a4); margin-bottom: var(--a6); }
+.seite-kopf h1 { font: var(--t-gross); letter-spacing: -.02em; margin: 0; flex: 1; }
+.seite-kopf p { margin: 4px 0 0; color: var(--text-2); }
+.inhalt-schmal { max-width: 720px; }
