@@ -24,8 +24,8 @@ let offen = "profil";
 
 export function einstellungenZeigen(haupt, bereich = offen) {
   offen = bereich;
-  const nav = h("nav", h("h1", { text: "Einstellungen" }), BEREICHE.map(([id, titel, symbol, farbe]) =>
-    h("button", { type: "button", "aria-selected": String(id === offen), onclick: () => einstellungenZeigen(haupt, id) },
+  const nav = h("nav", { "aria-label": "Einstellungen" }, h("h1", { text: "Einstellungen" }), BEREICHE.map(([id, titel, symbol, farbe]) =>
+    h("button", { type: "button", "aria-selected": String(id === offen), "aria-current": id === offen ? "page" : false, onclick: () => einstellungenZeigen(haupt, id) },
       h("span.symbol", { style: { background: farbe } }, ic(symbol)), titel)));
   const rechts = h("div.rechts");
   ersetzen(haupt, h("section.einstellungen", nav, rechts));
@@ -45,17 +45,17 @@ async function setze(schluessel, wert) {
 const zeile = (symbol, titel, unter, rechts, klick) => h("div.eintrag" + (klick ? ".klickbar" : ""), klick ? { onclick: klick } : {},
   symbol ? ic(symbol) : null, h("div.titel", titel, unter ? h("small", { text: unter }) : null), rechts);
 const schalterZeile = (symbol, titel, unter, schluessel, nachher) => zeile(symbol, titel, unter,
-  schalter(!!zustand.einstellungen[schluessel], async (an) => { await setze(schluessel, an); nachher?.(an); }));
+  schalter(!!zustand.einstellungen[schluessel], async (an) => { await setze(schluessel, an); nachher?.(an); }, titel));
 
 const SEITEN = {
   profil(el) {
     const p = zustand.profil || {};
-    const name = h("input.feld", { value: p.name || "", maxlength: "64", style: { "max-width": "260px" } });
+    const name = h("input.feld", { value: p.name || "", maxlength: "64", "aria-label": "Name", style: { "max-width": "260px" } });
     name.addEventListener("change", async () => {
       const r = await rufe("profil_setzen", { name: name.value.trim() });
       if (r.ok) { setzen({ profil: r.profil }); toast("Gespeichert – deine Kontakte sehen den neuen Namen"); } else toast(r.fehler, "fehler");
     });
-    const farben = h("div.farbwahl", Object.entries(AKZENTE).map(([id, [hell]]) => h("button", {
+    const farben = h("div.farbwahl", { role: "radiogroup", "aria-label": "Farbe" }, Object.entries(AKZENTE).map(([id, [hell]]) => h("button", {
       type: "button", "aria-label": AKZENTE[id][2], role: "radio", "aria-checked": String(p.avatar_farbe === hell), style: { "--f": hell },
       onclick: async () => { const r = await rufe("profil_setzen", { avatar_farbe: hell }); if (r.ok) { setzen({ profil: r.profil }); einstellungenZeigen(el.closest(".haupt"), "profil"); } },
     })));
@@ -72,7 +72,7 @@ const SEITEN = {
 
   erscheinung(el) {
     const e = zustand.einstellungen;
-    const design = h("div.segment", { style: { width: "260px" } });
+    const design = h("div.segment", { role: "radiogroup", "aria-label": "Aussehen", style: { width: "260px" } });
     const pille = h("span.pille");
     const optionen = [["system", "Automatisch"], ["light", "Hell"], ["dark", "Dunkel"]];
     design.append(pille, ...optionen.map(([id, t]) => h("button", { type: "button", "aria-selected": String((e.design || "system") === id), onclick: async (ev) => {
@@ -82,12 +82,12 @@ const SEITEN = {
     const pilleSetzen = () => { const a = design.querySelector('[aria-selected="true"]'); if (a) { pille.style.setProperty("width", `${a.offsetWidth}px`); pille.style.setProperty("transform", `translateX(${a.offsetLeft - 3}px)`); } };
     setTimeout(pilleSetzen);
 
-    const akzent = h("div.farbwahl", Object.entries(AKZENTE).map(([id, [hell, , name]]) => h("button", {
+    const akzent = h("div.farbwahl", { role: "radiogroup", "aria-label": "Akzentfarbe" }, Object.entries(AKZENTE).map(([id, [hell, , name]]) => h("button", {
       type: "button", title: name, "aria-label": name, role: "radio", "aria-checked": String((e.farbe || "blau") === id), style: { "--f": hell },
       onclick: async (ev) => { await setze("farbe", id); for (const b of akzent.children) b.setAttribute("aria-checked", String(b === ev.currentTarget)); },
     })));
 
-    const tapeten = h("div.tapetenwahl", Object.entries(TAPETEN).map(([id, name]) => {
+    const tapeten = h("div.tapetenwahl", { role: "radiogroup", "aria-label": "Hintergrund" }, Object.entries(TAPETEN).map(([id, name]) => {
       const vorschau = getComputedStyle(document.documentElement).getPropertyValue("--tapete");
       return h("div", h("button", {
         type: "button", "aria-label": name, role: "radio", "aria-checked": String((e.tapete || "tahoe") === id), dataset: { tapete: id },
@@ -141,8 +141,8 @@ const SEITEN = {
   async discord(el) {
     const r = await rufe("discord_status");
     const s = r.ok ? r : {};
-    const token = h("input.feld.mono", { type: "password", placeholder: s.eingebaut ? "Eingebauter Zugang wird benutzt" : "Bot-Token", autocomplete: "off" });
-    const kanaele = h("input.feld.mono", { placeholder: "Kanal-IDs, mit Komma getrennt", value: s.eigene_kanaele || "" });
+    const token = h("input.feld.mono", { type: "password", placeholder: s.eingebaut ? "Eingebauter Zugang wird benutzt" : "Bot-Token", autocomplete: "off", "aria-label": "Eigener Bot-Token" });
+    const kanaele = h("input.feld.mono", { placeholder: "Kanal-IDs, mit Komma getrennt", value: s.eigene_kanaele || "", "aria-label": "Kanal-IDs" });
     el.append(h("h2", { text: "Discord" }),
       h("div.gruppe",
         zeile("globe", "Status", s.meldung || "", h("span.verbindung" + (s.verbunden ? ".an" : s.fehler ? ".fehler" : ""), h("i"), s.verbunden ? "Verbunden" : s.fehler ? "Fehler" : "Getrennt")),
@@ -164,7 +164,7 @@ const SEITEN = {
       h("div.gruppe",
         zeile("key-round", "Master-Passwort ändern", "Schlüsselt deinen Tresor neu – Inhalt bleibt", ic("chevron-right", "ic-16"), () => passwortAendern()),
         zeile("lock", "Bei jedem Start fragen", s.windows_verfuegbar === false ? "Auf diesem System ohnehin immer" : "Sonst merkt sich Windows das Passwort für dein Benutzerkonto",
-          schalter(!!zustand.einstellungen.bei_start_fragen, async (an) => { await setze("bei_start_fragen", an); })),
+          schalter(!!zustand.einstellungen.bei_start_fragen, async (an) => { await setze("bei_start_fragen", an); }, "Bei jedem Start fragen")),
         zeile("refresh-cw", "Automatisch sperren", "Nach so vielen Minuten ohne Eingabe", h("select.feld", { style: { width: "120px" }, onchange: (ev) => setze("auto_sperre_min", Number(ev.target.value)) },
           [0, 5, 15, 60].map((m) => h("option", { value: m, selected: (zustand.einstellungen.auto_sperre_min || 0) === m, text: m ? `${m} Min.` : "Nie" })))),
         zeile("lock", "Jetzt sperren", "Strg L", ic("chevron-right", "ic-16"), () => window.dispatchEvent(new Event("vp4-sperren")))),
@@ -206,9 +206,9 @@ const SEITEN = {
 
 function passwortAendern() {
   blatt((zu) => {
-    const alt = h("input.feld", { type: "password", placeholder: "Aktuelles Passwort" });
-    const neu = h("input.feld", { type: "password", placeholder: "Neues Passwort" });
-    const neu2 = h("input.feld", { type: "password", placeholder: "Neues Passwort wiederholen" });
+    const alt = h("input.feld", { type: "password", placeholder: "Aktuelles Passwort", "aria-label": "Aktuelles Passwort" });
+    const neu = h("input.feld", { type: "password", placeholder: "Neues Passwort", "aria-label": "Neues Passwort" });
+    const neu2 = h("input.feld", { type: "password", placeholder: "Neues Passwort wiederholen", "aria-label": "Neues Passwort wiederholen" });
     const fehler = h("div.fehlertext", { role: "alert" });
     return [h("h2", { text: "Master-Passwort ändern" }),
       h("p", { text: "Es gibt weiterhin keine Wiederherstellung. Schreib dir das neue Passwort auf." }),

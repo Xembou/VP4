@@ -83,7 +83,10 @@ function leerZeigen() {
   if (!haupt || zustand.seite !== "chat" || zustand.aktiv) return;
   chatSchliessen();
   const hatChats = zustand.unterhaltungen.length > 0;
-  ersetzen(haupt, h("div.leer.gross",
+  // Nach jedem Nachladen der Liste hierher - nur neu bauen, wenn sich
+  // etwas ändert (sonst springt der Fokus von den Knöpfen weg)
+  if (haupt.firstElementChild?.dataset.leer === String(hatChats)) return;
+  ersetzen(haupt, h("div.leer.gross", { dataset: { leer: String(hatChats) } },
     h("div.kreis", ic("message-circle", "ic-36")),
     h("h3", { text: hatChats ? "Wähle einen Chat" : "Willkommen bei VP4" }),
     h("p", { text: hatChats ? "Links stehen deine Chats, Gruppen und Communities." : "Füge Freunde über ihre ID hinzu. Eure Nachrichten sind Ende-zu-Ende verschlüsselt." }),

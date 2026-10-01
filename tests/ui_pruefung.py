@@ -75,6 +75,9 @@ ANSICHTEN = {
     "bewegung-reduziert": ("", "chat:MAXX2-0002A|ruhig"),
     # Ohne Transparenz ist das Glas massiv - dann lässt sich auch der Text
     # in Seitenleiste, Leisten und Menüs messen (sonst übersprungen)
+    "chat-nach-unten": ("", "chat:MAXX2-0002A|nach-unten"),
+    "datei-warnung": ("", "chat:TIMM4-99KLA|datei-warnung"),
+    "kanal-kontextmenue": ("", "community:G-10B00001|kanal-menue"),
     "solide-chat": ("", "solide|chat:MAXX2-0002A"),
     "solide-kontextmenue": ("", "solide|kontextmenue:MAXX2-0002A"),
     "solide-community": ("", "solide|community:G-10B00001"),
@@ -82,7 +85,7 @@ ANSICHTEN = {
 
 # Diese Ansichten nur hell und breit - sie prüfen Verhalten, nicht Optik
 NUR_BREIT = {"solide-chat", "solide-kontextmenue", "solide-community"}
-NUR_EINMAL = {"sperre-automatisch", "chat-mitteilung", "chat-dm-akzent-gruen", "chat-dm-akzent-orange", "bewegung-reduziert", "leiste-tastatur"}
+NUR_EINMAL = {"chat-nach-unten", "datei-warnung", "sperre-automatisch", "chat-mitteilung", "chat-dm-akzent-gruen", "chat-dm-akzent-orange", "bewegung-reduziert", "leiste-tastatur"}
 
 
 class _Leise(http.server.SimpleHTTPRequestHandler):
@@ -145,6 +148,26 @@ async (aktion) => {
     if (!eintrag) throw new Error('Menüeintrag "Einstellungen …" fehlt');
     eintrag.click(); await warte(700);
     if (!document.querySelector('.community-einstellungen .eintrag .avatar')) throw new Error('Mitglieder fehlen im Blatt');
+  } else if (art === 'nach-unten') {
+    // Hochscrollen, dann kommt etwas Neues: der Knopf zeigt, wie viel
+    const v = document.querySelector('.verlauf');
+    v.scrollTop = 0; v.dispatchEvent(new Event('scroll')); await warte(300);
+    window.vp4Demo.ereignis({ typ: 'nachricht_neu', unterhaltung: 'MAXX2-0002A', vorschau: 'Bist du noch da?',
+      nachricht: { id: 'neu-1', von: 'max', von_name: 'Max', von_farbe: '#34C759', ich: false, ts: Date.now(), art: 'text', text: 'Bist du noch da?', reaktionen: [] } });
+    await warte(700);
+    const zahl = document.querySelector('.nach-unten .zaehler');
+    if (!zahl || zahl.textContent !== '1') throw new Error('Nach-unten-Knopf zeigt die neue Nachricht nicht an');
+  } else if (art === 'datei-warnung') {
+    const karte = [...document.querySelectorAll('.dateikarte')].find(k => k.textContent.includes('.exe'));
+    karte.click(); await warte(600);
+    if (!document.querySelector('.blatt h2')?.textContent.includes('wirklich öffnen')) throw new Error('Keine Rückfrage vor einem Programm');
+  } else if (art === 'kanal-menue') {
+    const zeile = [...document.querySelectorAll('.chatzeile.kanal')].find(z => z.textContent.includes('memes'));
+    const r = zeile.getBoundingClientRect();
+    zeile.dispatchEvent(new MouseEvent('contextmenu', { bubbles: true, clientX: r.left + 60, clientY: r.top + 20 }));
+    await warte(400);
+    const texte = [...document.querySelectorAll('.menue button')].map(b => b.textContent);
+    if (!texte.some(t => t.includes('Umbenennen'))) throw new Error('Kanal-Menü für Admins fehlt');
   } else if (art === 'solide') {
     document.documentElement.dataset.transparenz = 'aus';
   } else if (art === 'suchfeld') {
@@ -238,6 +261,14 @@ PRUEF_JS = r"""
     }
   }
   probleme.push(...window.__vp4Kontrast());
+  // Bedienelemente ohne Namen: ein Screenreader sagt dann nur "Schalter"
+  for (const el of document.querySelectorAll('button, [role="button"], [role="option"], [role="switch"], [role="menuitem"], [role="tab"], input, textarea')) {
+    if (!istSichtbar(el) || el.type === 'checkbox' && el.closest('label')) continue;
+    const name = (el.getAttribute('aria-label') || el.getAttribute('title') || el.textContent || el.getAttribute('placeholder') || '').trim()
+      || (el.getAttribute('aria-labelledby') && document.getElementById(el.getAttribute('aria-labelledby'))?.textContent.trim())
+      || (el.closest('label') && el.closest('label').textContent.trim());
+    if (!name) probleme.push(`Bedienelement ohne Namen: <${el.tagName.toLowerCase()} class="${el.className}">`);
+  }
   return probleme;
 }
 """

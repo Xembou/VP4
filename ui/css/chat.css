@@ -163,6 +163,7 @@
 .medium img, .medium video { display: block; max-width: var(--medium-max); max-height: var(--medium-max); width: auto; height: auto; }
 .medium.mit-mass img, .medium.mit-mass video { width: 100%; height: 100%; max-width: none; max-height: none; object-fit: cover; }
 .medium img { transition: opacity var(--dauer) var(--sanft), filter var(--dauer) var(--sanft); }
+.medium img.kommt { opacity: 0; }
 .medium img.unscharf { filter: blur(14px) saturate(1.2); transform: scale(1.08); }
 .medium.laedt { cursor: progress; }
 .medium.laedt img:not(.unscharf) { opacity: 0; }

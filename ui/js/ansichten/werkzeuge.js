@@ -49,8 +49,8 @@ async function textWerkzeug(el) {
   let gewaehlt = verfahren.find((v) => v.name === "AES-256-GCM") || verfahren[0];
 
   const wahlKnopf = h("button.verfahrenswahl", { type: "button" });
-  const eingabeFeld = h("textarea.feld", { rows: 8, placeholder: "Text hier eingeben oder einfügen …" });
-  const schluesselFeld = h("textarea.feld.mono", { rows: 2, spellcheck: "false" });
+  const eingabeFeld = h("textarea.feld", { rows: 8, placeholder: "Text hier eingeben oder einfügen …", "aria-label": "Eingabe" });
+  const schluesselFeld = h("textarea.feld.mono", { rows: 2, spellcheck: "false", "aria-label": "Schlüssel" });
   const schluesselBeschriftung = h("label.beschriftung");
   const erzeugen = knopf("Erzeugen", () => schluesselErzeugen(), "", "sparkles");
   const ausBund = knopf("Aus Schlüsselbund", (e) => bundMenue(e.currentTarget), "", "key-round");
@@ -239,10 +239,10 @@ async function schluesselWerkzeug(el) {
 
 /* ---------------------------------------------------------- Signieren */
 function signaturWerkzeug(el) {
-  const text = h("textarea.feld", { rows: 6, placeholder: "Der Text, um den es geht" });
-  const privat = h("textarea.feld.mono", { rows: 2, placeholder: "Privater Schlüssel (zum Signieren)" });
-  const oeffentlich = h("textarea.feld.mono", { rows: 2, placeholder: "Öffentlicher Schlüssel (zum Prüfen)" });
-  const signatur = h("textarea.feld.mono", { rows: 3, placeholder: "Signatur" });
+  const text = h("textarea.feld", { rows: 6, placeholder: "Der Text, um den es geht", "aria-label": "Text" });
+  const privat = h("textarea.feld.mono", { rows: 2, placeholder: "Privater Schlüssel (zum Signieren)", "aria-label": "Privater Schlüssel" });
+  const oeffentlich = h("textarea.feld.mono", { rows: 2, placeholder: "Öffentlicher Schlüssel (zum Prüfen)", "aria-label": "Öffentlicher Schlüssel" });
+  const signatur = h("textarea.feld.mono", { rows: 3, placeholder: "Signatur", "aria-label": "Signatur" });
   const ergebnis = h("div");
   el.append(h("div.werkbank",
     h("div.karte", h("h3", ic("pencil", "ic-16"), "Text"), text,
@@ -273,7 +273,7 @@ function pruefsummenWerkzeug(el) {
       Object.entries(r.summen).map(([alg, wert]) => h("div.eintrag", h("div.titel", h("small", { text: alg }), h("span.mono.waehlbar", { style: { "overflow-wrap": "anywhere", font: "13px/18px var(--schrift-mono)" }, text: wert })),
         h("button.rund", { type: "button", title: "Kopieren", "aria-label": "Kopieren", onclick: () => navigator.clipboard?.writeText(wert) }, ic("copy", "ic-16")))));
   };
-  const text = h("textarea.feld", { rows: 4, placeholder: "Text – oder unten eine Datei wählen" });
+  const text = h("textarea.feld", { rows: 4, placeholder: "Text – oder unten eine Datei wählen", "aria-label": "Text für die Prüfsumme" });
   el.append(h("div.inhalt-schmal",
     h("div.karte", text,
       h("div.zeile-felder", { style: { "margin-top": "12px" } },

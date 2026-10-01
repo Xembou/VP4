@@ -410,6 +410,12 @@ class ChatAnsicht {
       if (quelle) {
         const img = h("img", { src: quelle, alt: d.name || "Bild", decoding: "async", draggable: "false" });
         if (!d.url) img.classList.add("unscharf");                 // nur die kleine Vorschau
+        else if (!img.complete) {
+          // Weich einblenden, sobald es da ist (die Vorschau liegt darunter)
+          img.classList.add("kommt");
+          img.addEventListener("load", () => img.classList.remove("kommt"), { once: true });
+          img.addEventListener("error", () => img.classList.remove("kommt"), { once: true });
+        }
         else if (d.vorschau && d.vorschau !== d.url) {
           // Erst die Vorschau, dann weich das ganze Bild darüber
           zeile.style.setProperty("background-image", `url("${d.vorschau}")`);
@@ -674,9 +680,9 @@ class ChatAnsicht {
         u.art === "dm" ? h("span.mono", { text: u.id }) : null),
       h("div.gruppe",
         h("div.eintrag", ic("bell-off"), h("div.titel", { text: "Stummschalten" }),
-          schalter(u.stumm, async (an) => { await rufe("unterhaltung_setzen", u.id, { stumm: an }); })),
+          schalter(u.stumm, async (an) => { await rufe("unterhaltung_setzen", u.id, { stumm: an }); }, "Stummschalten")),
         h("div.eintrag", ic("pin"), h("div.titel", { text: "Oben anheften" }),
-          schalter(u.angeheftet, async (an) => { await rufe("unterhaltung_setzen", u.id, { angeheftet: an }); })),
+          schalter(u.angeheftet, async (an) => { await rufe("unterhaltung_setzen", u.id, { angeheftet: an }); }, "Oben anheften")),
         u.art === "dm" ? h("div.eintrag.klickbar", { onclick: () => sicherheitBlatt(u.id) }, ic("fingerprint"), h("div.titel", { text: "Sicherheitsnummer" }), ic("chevron-right", "ic-16")) : null),
       (info.medien || []).length ? [h("div.gruppe-titel", { text: "Fotos & Videos" }),
         h("div.mediengitter", info.medien.map((m) => h("img", { src: m.vorschau, alt: "Bild öffnen", tabindex: "0", role: "button", onclick: () => leuchtkasten(m), onkeydown: (e) => e.key === "Enter" && leuchtkasten(m) })))] : null,
@@ -862,8 +868,8 @@ function menueSchliessenUndReagieren(ansicht, n, e) {
   ansicht.reagieren(n, e);
 }
 
-function schalter(an, aendern) {
-  const s = h("button.schalter", { type: "button", role: "switch", "aria-checked": String(!!an) });
+function schalter(an, aendern, label = null) {
+  const s = h("button.schalter", { type: "button", role: "switch", "aria-checked": String(!!an), "aria-label": label || undefined });
   s.addEventListener("click", () => {
     const neu = s.getAttribute("aria-checked") !== "true";
     s.setAttribute("aria-checked", String(neu));

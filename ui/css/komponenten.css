@@ -274,6 +274,7 @@ textarea.feld { resize: none; line-height: 20px; }
 @keyframes blatt-raus { to { opacity: 0; transform: translateY(12px) scale(.98); } }
 
 /* --- Kontextmenü -------------------------------------------------------- */
+.menue:focus-visible { outline: none; }
 .menue {
   position: fixed; z-index: 60;
   min-width: 220px; width: max-content; max-width: 360px; padding: 6px;
@@ -318,11 +319,14 @@ textarea.feld { resize: none; line-height: 20px; }
 @keyframes menue-rein { from { opacity: 0; transform: scale(.94); } }
 
 /* --- Hinweise (Toast) ------------------------------------------------- */
+/* Oben in der Mitte (wie Apple): dort liegt die Werkzeugleiste, deren
+   Mitte frei ist - unten würde der Hinweis die neueste Nachricht verdecken. */
 .toasts {
-  position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%);
+  position: fixed; top: 18px; left: calc(50% + var(--leiste-breite) / 2); transform: translateX(-50%);
   z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 8px;
   pointer-events: none;
 }
+body:has(#app.versteckt) .toasts { left: 50%; }
 .toast {
   display: flex; align-items: center; gap: var(--a2);
   max-width: min(560px, calc(100vw - 48px));
@@ -339,7 +343,7 @@ textarea.feld { resize: none; line-height: 20px; }
 .toast.fehler .ic { color: var(--rot); }
 .toast.ok .ic { color: var(--gruen); }
 .toast.weg { animation: ausblenden var(--dauer) forwards; }
-@keyframes toast-rein { from { opacity: 0; transform: translateY(16px) scale(.96); } }
+@keyframes toast-rein { from { opacity: 0; transform: translateY(-14px) scale(.96); } }
 
 /* --- Banner (in einer Fläche) ------------------------------------------ */
 .banner {

@@ -42,11 +42,11 @@ export async function freundescodeKopieren() {
 
 /**
  * Kontakt blockieren - mit Rückfrage. Gibt true zurück, wenn es geklappt hat.
- * Blockierte stehen unter Einstellungen → Sicherheit.
+ * Aufgehoben wird es, indem man die ID wieder hinzufügt (kern/nachrichten.py).
  */
 export async function kontaktBlockieren(k, { nachfragen = true } = {}) {
   if (nachfragen && !(await bestaetigen(`${k.name || k.id} blockieren?`,
-    "Du bekommst keine Nachrichten und keine Anfragen mehr von dieser ID. Er oder sie erfährt davon nichts. Aufheben kannst du das unter Einstellungen → Sicherheit.",
+    "Du bekommst keine Nachrichten und keine Anfragen mehr von dieser ID; er oder sie erfährt davon nichts. Aufheben: die ID einfach wieder als Freund hinzufügen.",
     { ja: "Blockieren", gefahr: true, symbol: "circle-alert" }))) return false;
   const r = await rufe("kontakt_blockieren", k.id);
   if (!r.ok) { toast(r.fehler, "fehler"); return false; }
