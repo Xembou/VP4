@@ -99,7 +99,7 @@ html, body {
    alles abschalten: Überblenden bleibt, nur Bewegung (Schieben, Skalieren,
    Federn) fällt weg - so beschreibt es Apple auch. */
 @media (prefers-reduced-motion: reduce) {
-  .tapete { animation: none; }
+  .tapete { animation: none !important; }
   *, *::before, *::after {
     animation-name: einblenden !important;
     animation-iteration-count: 1 !important;
@@ -108,7 +108,7 @@ html, body {
   .blatt.weg, .abdunkler.weg, .toast.weg { animation-name: ausblenden !important; }
   .knopf:active, .rund:active, .werkzeug-karte:hover { transform: none !important; }
 }
-:root[data-bewegung="aus"] .tapete { animation: none; }
+:root[data-bewegung="aus"] .tapete { animation: none !important; }
 :root[data-bewegung="aus"] *, :root[data-bewegung="aus"] *::before, :root[data-bewegung="aus"] *::after {
   animation-name: einblenden !important;
   animation-iteration-count: 1 !important;

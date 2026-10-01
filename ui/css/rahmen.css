@@ -159,7 +159,7 @@
   #app { --leiste-breite: var(--leiste-breite-schmal); }
   .seitenleiste .weg-wenn-schmal { display: none !important; }
   .seitenleiste .nur-schmal { display: inline-flex; }
-  .seitenleiste .segment { grid-auto-flow: row; gap: 4px; padding: 4px; border-radius: 18px; }
+  .seitenleiste .segment { grid-auto-flow: row; gap: 4px; padding: 4px; border-radius: var(--r-blase); }
   .seitenleiste .segment button { height: 34px; }
   .seitenleiste .segment .pille { display: none; }
   .seitenleiste .segment button[aria-selected="true"] { background: var(--segment-pille); box-shadow: var(--schatten-klein); }

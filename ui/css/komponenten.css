@@ -179,7 +179,7 @@ textarea.feld { resize: none; line-height: 20px; }
 .eintrag > .ic { color: var(--text-2); }
 .eintrag .symbol {
   display: grid; place-items: center; width: 28px; height: 28px;
-  border-radius: 7px; color: var(--weiss); flex: none;
+  border-radius: var(--r-mini); color: var(--weiss); flex: none;
 }
 
 /* --- Karten ----------------------------------------------------------- */
@@ -259,7 +259,7 @@ textarea.feld { resize: none; line-height: 20px; }
 .blatt p { margin: 0 0 var(--a4); color: var(--text-2); }
 .blatt .aktionen { display: flex; justify-content: flex-end; gap: var(--a2); margin-top: var(--a5); flex-wrap: wrap; }
 .blatt .kopfsymbol {
-  width: 52px; height: 52px; border-radius: 14px;
+  width: 52px; height: 52px; border-radius: var(--r-zeile);
   display: grid; place-items: center; margin-bottom: var(--a4);
   background: var(--akzent-weich); color: var(--akzent);
 }
@@ -354,6 +354,8 @@ textarea.feld { resize: none; line-height: 20px; }
 .banner.warnung .ic { color: var(--orange); }
 .banner.gefahr { background: var(--rot-weich); }
 .banner.gefahr .ic { color: var(--rot); }
+.banner.ok { background: var(--gruen-weich); }
+.banner.ok .ic { color: var(--gruen); }
 .banner b { font-weight: 600; }
 .banner a { color: var(--akzent-schrift); }
 
@@ -378,7 +380,7 @@ textarea.feld { resize: none; line-height: 20px; }
 
 /* Passwortstärke */
 .staerke { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
-.staerke span { height: 4px; border-radius: 2px; background: var(--feld); transition: background var(--dauer); }
+.staerke span { height: 4px; border-radius: var(--r-strich); background: var(--feld); transition: background var(--dauer); }
 
 /* Leerer Zustand */
 .leer {
@@ -453,4 +455,4 @@ kbd { font-family: var(--schrift); }
   display: flex; gap: var(--a4); padding: 9px 16px; border-top: 1px solid var(--trenner);
   font: var(--t-klein); color: var(--text-3);
 }
-.schnellwahl .fuss kbd { font: var(--t-mini); color: var(--text-2); padding: 1px 5px; margin-right: 3px; border-radius: 5px; background: var(--flaeche-hover); }
+.schnellwahl .fuss kbd { font: var(--t-mini); color: var(--text-2); padding: 1px 5px; margin-right: 3px; border-radius: var(--r-mini); background: var(--flaeche-hover); }

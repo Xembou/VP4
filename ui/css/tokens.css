@@ -99,6 +99,8 @@
   --r-klein: 8px;
   --r-menue-eintrag: 8px;
   --r-mini: 6px;
+  --r-winzig: 4px;
+  --r-strich: 2px;
   --r-blase: 18px;
   --r-blase-eng: 6px;               /* wo zwei Blasen eines Laufs sich treffen */
   --r-eingabe: 24px;
@@ -120,6 +122,9 @@
   --dauer-schimmer: 1.6s;
   --dauer-tippen: 1.2s;
   --dauer-tapete: 70s;
+  --dauer-puls: 1s;
+  --verzug-1: .15s;
+  --verzug-2: .3s;
   --feder: cubic-bezier(.32, .72, 0, 1);            /* Blätter, Flächen */
   --feder-federnd: cubic-bezier(.175, .885, .32, 1.275);  /* Reaktionen */
   --sanft: cubic-bezier(.25, .1, .25, 1);
@@ -132,7 +137,9 @@
   --akzent-schrift: #0066CC;
   --akzent-weich: color-mix(in srgb, var(--akzent) 13%, transparent);
   --akzent-ring: color-mix(in srgb, var(--akzent) 32%, transparent);
-  --akzent-text-weich: color-mix(in srgb, var(--akzent-text) 94%, transparent);
+  /* Nebenschrift auf gewählten Zeilen: wie unter macOS ebenfalls voll -
+     schon 94 % Deckkraft schaffen auf Blau keine 4.5:1 mehr. */
+  --akzent-text-weich: var(--akzent-text);
   --fokus: var(--akzent);
 
   /* --- Hell (Standard) ---------------------------------------------- */
@@ -164,6 +171,7 @@
   --auf-blase-ich: rgba(255, 255, 255, .20);
   --auf-blase-ich-stark: rgba(255, 255, 255, .28);
 
+  --blau: #0088FF;
   --gruen: #34C759;  --rot: #FF383C;  --orange: #FF8D28;  --gelb: #FFCC00;
   --lila: #CB30E0;   --indigo: #6155F5; --mint: #00C8B3;  --pink: #FF2D55;
   --teal: #00C3D0;
@@ -240,6 +248,7 @@
   --blase-du-text: #FFFFFF;
   --auf-blase: rgba(255, 255, 255, .08);
 
+  --blau: #0091FF;
   --gruen: #30D158;  --rot: #FF4245;  --orange: #FF9230;  --gelb: #FFD600;
   --lila: #DB34F2;   --indigo: #6D7CFF; --mint: #00DAC3;  --pink: #FF375F;
   --teal: #00D2E0;

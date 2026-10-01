@@ -10,14 +10,14 @@ import { schalter } from "./chat.js";
 import { freundescodeKopieren } from "./kontakte.js";
 
 const BEREICHE = [
-  ["profil", "Profil", "circle-user", "#8E8E93"],
-  ["erscheinung", "Erscheinungsbild", "palette", "#0088FF"],
-  ["chat", "Chat", "message-circle", "#34C759"],
-  ["mitteilungen", "Mitteilungen", "bell", "#FF383C"],
-  ["discord", "Discord", "globe", "#6155F5"],
-  ["sicherheit", "Sicherheit", "shield", "#8E8E93"],
-  ["daten", "Daten", "hard-drive", "#FF8D28"],
-  ["ueber", "Über VP4", "info", "#00C3D0"],
+  ["profil", "Profil", "circle-user", "var(--grau)"],
+  ["erscheinung", "Erscheinungsbild", "palette", "var(--blau)"],
+  ["chat", "Chat", "message-circle", "var(--gruen)"],
+  ["mitteilungen", "Mitteilungen", "bell", "var(--rot)"],
+  ["discord", "Discord", "globe", "var(--indigo)"],
+  ["sicherheit", "Sicherheit", "shield", "var(--grau)"],
+  ["daten", "Daten", "hard-drive", "var(--orange)"],
+  ["ueber", "Über VP4", "info", "var(--teal)"],
 ];
 
 let offen = "profil";
@@ -209,7 +209,7 @@ function passwortAendern() {
     const alt = h("input.feld", { type: "password", placeholder: "Aktuelles Passwort" });
     const neu = h("input.feld", { type: "password", placeholder: "Neues Passwort" });
     const neu2 = h("input.feld", { type: "password", placeholder: "Neues Passwort wiederholen" });
-    const fehler = h("div.beschriftung", { style: { color: "var(--rot)", "min-height": "16px", "margin-top": "6px" } });
+    const fehler = h("div.fehlertext", { role: "alert" });
     return [h("h2", { text: "Master-Passwort ändern" }),
       h("p", { text: "Es gibt weiterhin keine Wiederherstellung. Schreib dir das neue Passwort auf." }),
       alt, h("div", { style: { height: "8px" } }), neu, h("div", { style: { height: "8px" } }), neu2, fehler,

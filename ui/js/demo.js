@@ -42,14 +42,14 @@ const unterhaltungen = [
 ];
 
 const communities = [
-  { id: "G-10B00001", name: "Klasse 10b", icon: "📚", farbe: "#0088FF", admin: true, besitzer: true, mitglieder: 23, letzte_ts: jetzt - 30 * min,
+  { id: "G-10B00001", name: "Klasse 10b", icon: "📚", farbe: "#0088FF", admin: true, besitzer: true, rolle: "besitzer", geladen: true, mitglieder: 23, letzte_ts: jetzt - 30 * min,
     kanaele: [
       { id: "allg", name: "allgemein", unterhaltung: "K-ALLG", ungelesen: 3 },
       { id: "haus", name: "hausaufgaben", unterhaltung: "K-HAUS" },
       { id: "meme", name: "memes", unterhaltung: "K-MEME" },
       { id: "info", name: "ankündigungen", unterhaltung: "K-INFO", nur_admins: true },
     ] },
-  { id: "G-GAME0002", name: "Gaming Squad", icon: "🎮", farbe: "#6155F5", mitglieder: 8, letzte_ts: jetzt - 4 * 60 * min,
+  { id: "G-GAME0002", name: "Gaming Squad", icon: "🎮", farbe: "#6155F5", rolle: "mitglied", geladen: true, mitglieder: 8, letzte_ts: jetzt - 4 * 60 * min,
     kanaele: [{ id: "a", name: "allgemein", unterhaltung: "K-G1" }, { id: "b", name: "clips", unterhaltung: "K-G2" }] },
 ];
 
@@ -86,6 +86,10 @@ const verlaeufe = {
     n("g5", "ich", 55, "Ich auch, wenn es nach 18 Uhr ist"),
     n("g6", "lina", 30, "19:30 passt allen?", { reaktionen: [{ emoji: "👍", anzahl: 3, meine: true }] }),
     n("g7", "jonas", 12, "Wer ist heute dabei?"),
+    // Noch unterwegs: ein Bild ohne Vorschau und eine halbe Datei
+    n("g8", "lina", 9, "", { art: "bild", datei: { name: "kinoplakat.jpg", breite: 400, hoehe: 300, groesse: 1_850_000, fortschritt: 0.42 } }),
+    n("g9", "ben", 8, "", { art: "datei", datei: { name: "Kinoprogramm_Samstag_und_Sonntag.pdf", groesse: 1_240_000, fortschritt: 0.65 } }),
+    n("g10", "ben", 7.5, "", { art: "bild", datei: { name: "kaputt.jpg", breite: 300, hoehe: 200, kaputt: true } }),
   ],
   "K-ALLG": [
     n("k1", "lina", 120, "Hat jemand die Folien von Bio?"),
@@ -98,6 +102,7 @@ const verlaeufe = {
     n("t0", "TIMM4-99KLA", 3 * 24 * 60, "Bis Montag!"),
     { id: "t1", art: "system", ts: jetzt - 27 * 60 * min, text: "Tims Schlüssel hat sich geändert. Vergleicht die Sicherheitsnummer." },
     n("t2", "TIMM4-99KLA", 26 * 60, "Neues Handy, neue Nummer haha"),
+    n("t3", "TIMM4-99KLA", 26 * 60 - 1, "", { art: "datei", datei: { name: "Setup_NeuesSpiel.exe", groesse: 48_200_000, mime: "application/x-msdownload", url: "blob:demo" } }),
   ],
 };
 
@@ -133,8 +138,23 @@ const VERFAHREN = [
 const einstellungen = { design: parameter.get("design") || "system", farbe: parameter.get("farbe") || "blau", tapete: parameter.get("tapete") || "tahoe", transport_modus: "beide", lesebestaetigungen: true, tippanzeige: true, mitteilungen: true, mitteilung_vorschau: true };
 const ereignisse = [];
 const ok = (x = {}) => ({ ok: true, ...x });
+// Für ui_pruefung.py: Ereignisse einspeisen und mitzählen, was gerufen wurde
+const aufrufe = {};
+if (parameter.has("demo")) {
+  window.vp4Demo = { ereignis: (e) => ereignisse.push(e), aufrufe };
+}
+const MITGLIEDER = [
+  { id: "7AC5E-HTN4Q", name: "Leon", farbe: "#0088FF", ts: jetzt - 1 * min, besitzer: true, admin: true, ich: true },
+  { id: "JONA8-77QWE", name: "Jonas", farbe: "#FF8D28", ts: jetzt - 30 * min, admin: true },
+  { id: "LINA2-K4M9P", name: "Lina", farbe: "#FF2D55", ts: jetzt - 118 * min },
+  { id: "BENN5-3XZ8A", name: "Ben", farbe: "#00C3D0", ts: jetzt - 117 * min },
+  { id: "SOFI3-77B2C", name: "Sofia Maria von der Heide-Hohenstein", farbe: "#CB30E0", ts: jetzt - 26 * 60 * min },
+];
 
-export const api = {
+const kanalFinden = (cid, kid) => (communities.find((c) => c.id === cid)?.kanaele || []).find((k) => k.id === kid);
+const geaendert = (cid) => { ereignisse.push({ typ: "community_geaendert", id: cid }); return ok(); };
+
+const echteApi = {
   async status() {
     const phase = parameter.get("phase") || "bereit";
     return ok({ phase, version: "5.0.0", repo_url: "https://github.com/Xembou/VP4", profil: phase === "einrichten" ? null : ICH, einstellungen, verbindung: { lan: "an", discord: "an" }, windows_verfuegbar: true,
@@ -144,6 +164,26 @@ export const api = {
   async einrichten(d) { Object.assign(ICH, { name: d.name, avatar_farbe: d.avatar_farbe }); return ok({ profil: ICH }); },
   async entsperren(pw) { return pw === "falsch" ? { ok: false, fehler: "Das Passwort stimmt nicht." } : ok(); },
   async sperren() { return ok(); },
+  async kontakt_blockieren() { return ok(); },
+  async datei_oeffnen(id, bestaetigt = false) {
+    const x = Object.values(verlaeufe).flat().find((m) => m.id === id);
+    if (/\.(exe|bat|cmd|lnk|ps1|msi|scr)$/i.test(x?.datei?.name || "") && !bestaetigt) {
+      return { ok: false, warnung: `„${x.datei.name}“ ist ein Programm. Programme aus dem Chat können deinen PC übernehmen – öffne es nur, wenn du sicher weisst, von wem es ist und was es tut.` };
+    }
+    return ok();
+  },
+  async datei_speichern() { return ok(); },
+  async community_mitglieder() { return ok({ liste: MITGLIEDER }); },
+  async community_umbenennen(cid, name, icon) { const c = communities.find((x) => x.id === cid); Object.assign(c, { name, icon: icon || c.icon }); return geaendert(cid); },
+  async kanal_anlegen(cid, name, nurAdmins) { const c = communities.find((x) => x.id === cid); c.kanaele.push({ id: `k-${name}`, name, unterhaltung: `k-${name}`, nur_admins: !!nurAdmins }); return geaendert(cid); },
+  async kanal_umbenennen(cid, kid, name) { kanalFinden(cid, kid).name = name; return geaendert(cid); },
+  async kanal_loeschen(cid, kid) { const c = communities.find((x) => x.id === cid); c.kanaele = c.kanaele.filter((k) => k.id !== kid); return geaendert(cid); },
+  async kanal_verschieben(cid, kid, pos) { const c = communities.find((x) => x.id === cid); const k = kanalFinden(cid, kid); c.kanaele = c.kanaele.filter((x) => x !== k); c.kanaele.splice(pos, 0, k); return geaendert(cid); },
+  async kanal_nur_admins_setzen(cid, kid, ja) { kanalFinden(cid, kid).nur_admins = !!ja; return geaendert(cid); },
+  async admin_setzen(cid, nid, ja) { const m = MITGLIEDER.find((x) => x.id === nid); if (m) m.admin = !!ja; return geaendert(cid); },
+  async mitglied_entfernen(cid, nid) { const i = MITGLIEDER.findIndex((x) => x.id === nid); if (i >= 0) MITGLIEDER.splice(i, 1); geaendert(cid); return ok({ code: "VP4G2-NEUERcodeNEUERcodeNEUERcodeNEUERcodeNEUERcodeNEUERcode" }); },
+  async community_verlassen() { return ok(); },
+  async community_code_erneuern() { return ok({ code: "VP4G2-NEUERcodeNEUERcodeNEUERcodeNEUERcode" }); },
   async passwort_staerke(pw) { const s = Math.min(4, Math.floor(pw.length / 4)); return ok({ stufe: s, text: ["Sehr schwach", "Schwach", "Mittel", "Gut", "Stark"][s] }); },
   async unterhaltungen() { return ok({ liste: unterhaltungen }); },
   async communities() { return ok({ liste: communities }); },
@@ -190,3 +230,13 @@ export const api = {
   async einstellung_setzen(k, v) { einstellungen[k] = v; return ok(); },
   async profil_setzen(p) { Object.assign(ICH, p); return ok({ profil: ICH }); },
 };
+
+// Jeder Aufruf wird gezählt - so prüft ui_pruefung.py z. B., dass ein
+// "gesperrt"-Ereignis die Oberfläche NICHT noch einmal sperren() rufen lässt.
+export const api = new Proxy(echteApi, {
+  get(ziel, name) {
+    const fn = ziel[name];
+    if (typeof fn !== "function") return fn;
+    return (...args) => { aufrufe[name] = (aufrufe[name] || 0) + 1; return fn(...args); };
+  },
+});

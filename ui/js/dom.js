@@ -122,7 +122,7 @@ export function ersetzen(el, ...kinder) {
   return anhaengen(el, kinder);
 }
 
-/** Knopf mit Symbol, z. B. rundknopf("send", "Senden", fn) */
+/** Knopf mit Symbol, z. B. rundknopf("arrow-up", "Senden", fn) */
 export function rundknopf(symbol, titel, aktion, klasse = "") {
   return h("button.rund" + (klasse ? "." + klasse.split(" ").join(".") : ""),
     { type: "button", title: titel, "aria-label": titel, onclick: aktion }, ic(symbol));

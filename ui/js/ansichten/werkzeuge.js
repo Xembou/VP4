@@ -7,12 +7,12 @@ import { rufe, auf } from "../bruecke.js";
 import { menue, toast, blatt, eingabe, bestaetigen } from "../blaetter.js";
 
 export const WERKZEUGE = [
-  { id: "text", titel: "Text verschlüsseln", symbol: "lock", farbe: "#0088FF", info: "18 Verfahren – von AES bis Post-Quanten, und Klassiker zum Spielen." },
-  { id: "dateien", titel: "Dateien & Ordner", symbol: "folder-lock", farbe: "#FF8D28", info: "Ganze Ordner in eine .vp4- oder .age-Datei packen, beliebig gross." },
-  { id: "schluessel", titel: "Schlüsselbund", symbol: "key-round", farbe: "#34C759", info: "Deine gespeicherten Schlüssel, geschützt durch das Master-Passwort." },
-  { id: "signieren", titel: "Signieren & Prüfen", symbol: "signature", farbe: "#6155F5", info: "Beweisen, dass ein Text von dir ist und nicht verändert wurde." },
-  { id: "pruefsummen", titel: "Prüfsummen", symbol: "scan-line", farbe: "#00C3D0", info: "Herausfinden, ob zwei Dateien wirklich exakt gleich sind." },
-  { id: "obsidian", titel: "Obsidian", symbol: "notebook-pen", farbe: "#CB30E0", info: "Schlüssel in deinen Obsidian-Vault schreiben und zurückholen." },
+  { id: "text", titel: "Text verschlüsseln", symbol: "lock", farbe: "var(--blau)", info: "18 Verfahren – von AES bis Post-Quanten, und Klassiker zum Spielen." },
+  { id: "dateien", titel: "Dateien & Ordner", symbol: "folder-lock", farbe: "var(--orange)", info: "Ganze Ordner in eine .vp4- oder .age-Datei packen, beliebig gross." },
+  { id: "schluessel", titel: "Schlüsselbund", symbol: "key-round", farbe: "var(--gruen)", info: "Deine gespeicherten Schlüssel, geschützt durch das Master-Passwort." },
+  { id: "signieren", titel: "Signieren & Prüfen", symbol: "signature", farbe: "var(--indigo)", info: "Beweisen, dass ein Text von dir ist und nicht verändert wurde." },
+  { id: "pruefsummen", titel: "Prüfsummen", symbol: "scan-line", farbe: "var(--teal)", info: "Herausfinden, ob zwei Dateien wirklich exakt gleich sind." },
+  { id: "obsidian", titel: "Obsidian", symbol: "notebook-pen", farbe: "var(--lila)", info: "Schlüssel in deinen Obsidian-Vault schreiben und zurückholen." },
 ];
 
 const ARTEN = {
@@ -27,7 +27,7 @@ export function werkzeugZeigen(haupt, id) {
   ersetzen(haupt, seite);
   if (!w) return uebersicht(seite);
   seite.append(h("div.seite-kopf",
-    h("span", { style: { display: "grid", "place-items": "center", width: "44px", height: "44px", "border-radius": "12px", background: w.farbe, color: "#fff" } }, ic(w.symbol, "ic-20")),
+    h("span.kachel", { style: { "--farbe": w.farbe }, "aria-hidden": "true" }, ic(w.symbol, "ic-20")),
     h("div", { style: { flex: "1" } }, h("h1", { text: w.titel }), h("p", { text: w.info }))));
   const inhalt = h("div");
   seite.append(inhalt);
@@ -137,7 +137,7 @@ async function textWerkzeug(el) {
     verschluesseln = modus === "ver";
     const x = await rufe("text_verarbeiten", gewaehlt.name, modus, eingabeFeld.value, schluesselFeld.value);
     ausgabe.classList.toggle("leer-hinweis", !x.ok);
-    if (!x.ok) { ausgabe.textContent = x.fehler; ausgabe.style.setProperty("color", "var(--rot)"); kopieren.disabled = tauschen.disabled = true; return; }
+    if (!x.ok) { ausgabe.textContent = x.fehler; ausgabe.style.setProperty("color", "var(--rot-schrift)"); kopieren.disabled = tauschen.disabled = true; return; }
     ausgabe.style.removeProperty("color");
     ausgabe.textContent = x.ergebnis;
     kopieren.disabled = tauschen.disabled = false;
@@ -199,7 +199,7 @@ function dateiWerkzeug(el) {
     const ab = [
       auf("fortschritt", (e) => { if (e.auftrag !== r.auftrag) return; balken.style.setProperty("width", `${Math.round(e.anteil * 100)}%`); text.textContent = `${groesse(e.fertig)} von ${groesse(e.gesamt)}`; }),
       auf("auftrag_fertig", (e) => { if (e.auftrag !== r.auftrag) return; balken.style.setProperty("width", "100%"); text.textContent = `Fertig: ${e.ziel}`; abbrechen.remove(); ab.forEach((f) => f()); toast("Fertig"); }),
-      auf("auftrag_fehler", (e) => { if (e.auftrag !== r.auftrag) return; text.textContent = e.fehler; text.style.setProperty("color", "var(--rot)"); abbrechen.remove(); ab.forEach((f) => f()); }),
+      auf("auftrag_fehler", (e) => { if (e.auftrag !== r.auftrag) return; text.textContent = e.fehler; text.style.setProperty("color", "var(--rot-schrift)"); abbrechen.remove(); ab.forEach((f) => f()); }),
     ];
   };
 
@@ -258,7 +258,7 @@ function signaturWerkzeug(el) {
         knopf("Prüfen", async () => {
           const r = await rufe("signatur_pruefen", text.value, signatur.value, oeffentlich.value);
           ersetzen(ergebnis, r.ok && r.gueltig
-            ? h("div.banner", { style: { "margin-top": "14px", background: "rgba(52,199,89,.14)" } }, ic("circle-check"), h("div", h("b", { text: "Echt. " }), "Der Text stammt vom Besitzer dieses Schlüssels und ist unverändert."))
+            ? h("div.banner.ok", { style: { "margin-top": "14px" } }, ic("circle-check"), h("div", h("b", { text: "Echt. " }), "Der Text stammt vom Besitzer dieses Schlüssels und ist unverändert."))
             : h("div.banner.gefahr", { style: { "margin-top": "14px" } }, ic("circle-alert"), h("div", h("b", { text: "Ungültig. " }), r.fehler || "Text, Signatur oder Schlüssel passen nicht zusammen.")));
         }, "", "check")),
       ergebnis)));

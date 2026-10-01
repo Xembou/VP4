@@ -220,7 +220,7 @@
 .sprache .abspielen { width: 32px; height: 32px; border-radius: 50%; border: 0; display: grid; place-items: center; cursor: pointer; background: var(--auf-blase); color: inherit; }
 .zeile.ich .sprache .abspielen { background: var(--auf-blase-ich-stark); }
 .welle { flex: 1; display: flex; align-items: center; gap: 2px; height: 26px; cursor: pointer; }
-.welle i { flex: 1; min-width: 2px; border-radius: 2px; background: currentColor; opacity: .45; }
+.welle i { flex: 1; min-width: 2px; border-radius: var(--r-strich); background: currentColor; opacity: .45; }
 .welle i.gespielt { opacity: 1; }
 .sprache small { font: var(--t-mini); font-variant-numeric: tabular-nums; }
 
@@ -272,8 +272,8 @@
 /* Tippt gerade */
 .tippt .blase { display: inline-flex; gap: 4px; padding: 12px 14px; }
 .tippt .blase i { width: 7px; height: 7px; border-radius: 50%; background: var(--text-3); animation: tippen var(--dauer-tippen) infinite ease-in-out; }
-.tippt .blase i:nth-child(2) { animation-delay: .15s; }
-.tippt .blase i:nth-child(3) { animation-delay: .3s; }
+.tippt .blase i:nth-child(2) { animation-delay: var(--verzug-1); }
+.tippt .blase i:nth-child(3) { animation-delay: var(--verzug-2); }
 @keyframes tippen { 0%, 60%, 100% { transform: translateY(0); opacity: .5; } 30% { transform: translateY(-4px); opacity: 1; } }
 
 /* Nach unten springen */
@@ -325,7 +325,7 @@
 .senden.rein { animation: reaktion-pop var(--dauer) var(--feder-federnd); }
 
 .aufnahme { display: flex; align-items: center; gap: 10px; flex: 1; padding: 0 8px; height: 34px; font: var(--t-hinweis); }
-.aufnahme .rotpunkt { width: 10px; height: 10px; border-radius: 50%; background: var(--rot); animation: pulsieren 1s infinite; }
+.aufnahme .rotpunkt { width: 10px; height: 10px; border-radius: 50%; background: var(--rot); animation: pulsieren var(--dauer-puls) infinite; }
 .aufnahme .zeit { font-variant-numeric: tabular-nums; }
 @keyframes pulsieren { 50% { opacity: .35; } }
 

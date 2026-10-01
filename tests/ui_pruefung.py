@@ -14,6 +14,12 @@ Fenster), hell und dunkel, schmal und breit, und
   - meldet Fehler in der Konsole
   - meldet Texte, die sich überlappen
   - meldet waagrechtes Überlaufen
+  - misst den Kontrast jedes sichtbaren Textes auf seinem echten
+    Hintergrund (4.5:1, grosser Text 3:1) - wo der Hintergrund Glas, ein
+    Bild oder ein Verlauf ist, wird NICHT geraten, sondern übersprungen
+  - misst Füllung/Schrift jeder Akzentfarbe in Hell und Dunkel
+  - sucht Farbwerte, Radien und Dauern ausserhalb von tokens.css und
+    Symbole, die es im Sprite nicht gibt
   - prüft, dass eine Nachricht mit HTML darin als TEXT erscheint
 
     python tests/ui_pruefung.py            # alles
@@ -37,6 +43,9 @@ UI = ORDNER / "ui"
 BILDER = Path(__file__).resolve().parent / "screenshots"
 
 # Name -> (Abfrage, Aktion im Browser vor dem Screenshot)
+# Eine Aktion darf aus mehreren Schritten bestehen, getrennt mit "|".
+# Schritte, die echte Maus/Tastatur brauchen (Hover, Fokusring), macht
+# Python: "hover:<css>", "taste:<Taste>", "tippen:<Text>".
 ANSICHTEN = {
     "chat-dm": ("", "chat:MAXX2-0002A"),
     "chat-gruppe": ("", "chat:G-K7Q2M9PX"),
@@ -53,7 +62,27 @@ ANSICHTEN = {
     "einrichtung": ("&phase=einrichten", ""),
     "einrichtung-passwort": ("&phase=einrichten", "einrichtung:2"),
     "sperre": ("&phase=gesperrt", ""),
+    # Neu im Feinschliff
+    "chat-hover": ("", "chat:MAXX2-0002A|hover:.zeile:not(.ich) .blase >> text=Hast du das Video"),
+    "chat-mitteilung": ("", "chat:MAXX2-0002A|mitteilung"),
+    "schnellwahl": ("", "schnellwahl:"),
+    "schnellwahl-suche": ("", "schnellwahl:ma|taste:ArrowDown"),
+    "community-einstellungen": ("", "community-einstellungen"),
+    "leiste-tastatur": ("", "suchfeld|taste:ArrowDown|taste:ArrowDown"),
+    "sperre-automatisch": ("", "autosperre"),
+    "chat-dm-akzent-gruen": ("&farbe=gruen", "chat:MAXX2-0002A"),
+    "chat-dm-akzent-orange": ("&farbe=orange", "chat:MAXX2-0002A"),
+    "bewegung-reduziert": ("", "chat:MAXX2-0002A|ruhig"),
+    # Ohne Transparenz ist das Glas massiv - dann lässt sich auch der Text
+    # in Seitenleiste, Leisten und Menüs messen (sonst übersprungen)
+    "solide-chat": ("", "solide|chat:MAXX2-0002A"),
+    "solide-kontextmenue": ("", "solide|kontextmenue:MAXX2-0002A"),
+    "solide-community": ("", "solide|community:G-10B00001"),
 }
+
+# Diese Ansichten nur hell und breit - sie prüfen Verhalten, nicht Optik
+NUR_BREIT = {"solide-chat", "solide-kontextmenue", "solide-community"}
+NUR_EINMAL = {"sperre-automatisch", "chat-mitteilung", "chat-dm-akzent-gruen", "chat-dm-akzent-orange", "bewegung-reduziert", "leiste-tastatur"}
 
 
 class _Leise(http.server.SimpleHTTPRequestHandler):
@@ -101,6 +130,51 @@ async (aktion) => {
   } else if (art === 'einstellungen') {
     klick('.leiste-fuss .rund'); await warte(300);
     if (wert) { [...document.querySelectorAll('.einstellungen nav button')].find(b => b.textContent.toLowerCase().startsWith(wert.slice(0,5))).click(); await warte(400); }
+  } else if (art === 'schnellwahl') {
+    document.dispatchEvent(new KeyboardEvent('keydown', {key: 'k', ctrlKey: true, bubbles: true}));
+    await warte(250);
+    const feld = document.querySelector('.schnellwahl input');
+    if (!feld) throw new Error('Schnellwahl ging nicht auf');
+    if (wert) { feld.value = wert; feld.dispatchEvent(new Event('input')); }
+    if (document.activeElement !== feld) throw new Error('Schnellwahl: Fokus nicht im Suchfeld');
+  } else if (art === 'community-einstellungen') {
+    klick('.segment [data-bereich="communities"]'); await warte(200);
+    document.querySelector('.leiste-liste .chatzeile').click(); await warte(500);
+    klick('.community-held .rund'); await warte(250);
+    const eintrag = [...document.querySelectorAll('.menue button')].find(b => b.textContent.includes('Einstellungen'));
+    if (!eintrag) throw new Error('Menüeintrag "Einstellungen …" fehlt');
+    eintrag.click(); await warte(700);
+    if (!document.querySelector('.community-einstellungen .eintrag .avatar')) throw new Error('Mitglieder fehlen im Blatt');
+  } else if (art === 'solide') {
+    document.documentElement.dataset.transparenz = 'aus';
+  } else if (art === 'suchfeld') {
+    document.querySelector('.suche input').focus();
+  } else if (art === 'mitteilung') {
+    window.vp4Demo.ereignis({ typ: 'mitteilung', titel: 'Die Jungs', text: 'Jonas: Wer ist heute dabei?', unterhaltung: 'G-K7Q2M9PX' });
+    // eine Mitteilung für den offenen Chat darf KEINEN Hinweis machen
+    window.vp4Demo.ereignis({ typ: 'mitteilung', titel: 'Max', text: 'nicht anzeigen', unterhaltung: 'MAXX2-0002A' });
+    await warte(700);
+    const texte = [...document.querySelectorAll('.toast')].map(t => t.textContent);
+    if (!texte.some(t => t.includes('Wer ist heute dabei'))) throw new Error('Mitteilung kam nicht als Hinweis');
+    if (document.hasFocus() && texte.some(t => t.includes('nicht anzeigen'))) throw new Error('Mitteilung für den offenen Chat wurde angezeigt');
+  } else if (art === 'autosperre') {
+    // Befund aus dem Code-Review: "gesperrt" rief sperren() noch einmal -
+    // nach dem Entsperren sperrte sich VP4 sofort wieder selbst.
+    window.vp4Demo.ereignis({ typ: 'gesperrt' });
+    await warte(700);
+    if (!document.querySelector('.einrichtung.sperre')) throw new Error('Sperrbildschirm kam nicht');
+    const feld = document.querySelector('.einrichtung input[type=password]');
+    feld.value = 'richtig'; feld.dispatchEvent(new Event('input'));
+    document.querySelector('.einrichtung .knopf.primaer').click();
+    await warte(1500);
+    if (document.querySelector('.einrichtung.sperre')) throw new Error('Nach dem Entsperren wieder gesperrt');
+    if (document.getElementById('app').classList.contains('versteckt')) throw new Error('Oberfläche nach dem Entsperren nicht da');
+    if (window.vp4Demo.aufrufe.sperren) throw new Error(`"gesperrt" hat sperren() gerufen (${window.vp4Demo.aufrufe.sperren}x)`);
+  } else if (art === 'ruhig') {
+    document.documentElement.dataset.bewegung = 'aus';
+    const s = getComputedStyle(document.querySelector('.blase'));
+    if (s.animationName !== 'einblenden') throw new Error('Bewegung reduzieren: Blasen bewegen sich noch (' + s.animationName + ')');
+    if (getComputedStyle(document.querySelector('.tapete')).animationName !== 'none') throw new Error('Bewegung reduzieren: Tapete treibt noch');
   } else if (art === 'einrichtung') {
     for (let i = 0; i < Number(wert); i++) {
       const feld = document.querySelector('.einrichtung input.feld');
@@ -163,9 +237,205 @@ PRUEF_JS = r"""
       probleme.push(`Text ragt heraus: "${el.textContent.trim().slice(0, 40)}"`);
     }
   }
+  probleme.push(...window.__vp4Kontrast());
   return probleme;
 }
 """
+
+
+# ---------------------------------------------------------------------
+#  Kontrast (WCAG 2): Text gegen seinen ECHTEN Hintergrund
+# ---------------------------------------------------------------------
+# Der Hintergrund wird nicht über die Vorfahren geraten, sondern an der
+# Stelle des Textes abgefragt (elementsFromPoint) - so zählen auch
+# Flächen, die nur darunter liegen. Wo darunter Glas (backdrop-filter),
+# ein Bild, ein Verlauf oder ein Filter liegt, lässt sich die Farbe nicht
+# bestimmen: dann wird übersprungen, nie geraten. Halbdurchsichtige
+# Flächen werden übereinander gerechnet; bleibt am Ende mehr als 20 %
+# unbestimmt (die Tapete unter der Hauptfläche), wird ebenfalls
+# übersprungen, bis 20 % zählt der Seitengrund als Näherung.
+KONTRAST_JS = r"""
+() => {
+  const zahl = (s) => {
+    if (!s) return null;
+    let m = s.match(/^rgba?\(([^)]+)\)/);
+    if (m) {
+      const t = m[1].split(/[\s,\/]+/).filter(Boolean).map(Number);
+      return [t[0], t[1], t[2], t.length > 3 ? t[3] : 1];
+    }
+    m = s.match(/^color\(srgb ([^)]+)\)/);
+    if (m) {
+      const t = m[1].split(/[\s\/]+/).filter(Boolean).map(Number);
+      return [t[0] * 255, t[1] * 255, t[2] * 255, t.length > 3 ? t[3] : 1];
+    }
+    return undefined;     // eine Farbe, die wir nicht lesen können
+  };
+  const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+  const hell = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+  const ueber = (oben, unten) => { const a = oben[3]; return [0, 1, 2].map(i => oben[i] * a + unten[i] * (1 - a)).concat(1); };
+  const verhaeltnis = (a, b) => { const x = hell(a), y = hell(b); return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05); };
+  const hex = (c) => '#' + c.slice(0, 3).map(x => Math.round(x).toString(16).padStart(2, '0')).join('');
+
+  const grund = zahl(getComputedStyle(document.body).backgroundColor);
+  window.__vp4Grund = (el) => {
+    const r = el.getBoundingClientRect();
+    const x = Math.min(innerWidth - 1, Math.max(0, r.left + Math.min(r.width / 2, 24)));
+    const y = Math.min(innerHeight - 1, Math.max(0, r.top + r.height / 2));
+    const stapel = document.elementsFromPoint(x, y).filter(e => !el.contains(e) || e === el);
+    if (!stapel.length) return null;
+    // Liegt etwas Fremdes ÜBER dem Text (z. B. Glas, unter dem der Verlauf
+    // durchscrollt), ist der Text an dieser Stelle gar nicht zu sehen.
+    if (!(stapel[0] === el || stapel[0].contains(el))) return null;
+    const schichten = [];
+    let rest = 1;                 // was von unten noch durchscheint
+    for (const e of stapel) {
+      if (e.contains(el) && e !== el && e.closest('svg')) continue;
+      const s = getComputedStyle(e);
+      const unklar = ['IMG', 'VIDEO', 'CANVAS', 'IFRAME'].includes(e.tagName)
+        || (s.backdropFilter && s.backdropFilter !== 'none') || (s.webkitBackdropFilter && s.webkitBackdropFilter !== 'none')
+        || s.backgroundImage !== 'none' || s.filter !== 'none' || s.mixBlendMode !== 'normal'
+        || (Number(s.opacity) < 1 && !e.contains(el));
+      // Glas, Bild, Verlauf: nur wenn darüber schon fast alles deckt (die
+      // Hauptfläche über der Tapete), zählt der Rest als Seitengrund.
+      if (unklar) { if (rest <= 0.2 + 1e-6) break; return null; }
+      const c = zahl(s.backgroundColor);
+      if (c === undefined) return null;
+      if (c && c[3] > 0) { schichten.push(c); rest *= (1 - c[3]); if (c[3] >= 0.999) break; }
+    }
+    if (rest > 0.2 + 1e-6) return null;
+    let farbe = schichten.length && schichten[schichten.length - 1][3] >= 0.999 ? schichten.pop() : grund;
+    if (!farbe || farbe[3] < 0.999) return null;
+    for (let i = schichten.length - 1; i >= 0; i--) farbe = ueber(schichten[i], farbe);
+    return farbe;
+  };
+
+  window.__vp4Kontrast = () => {
+    const probleme = [];
+    const gesehen = new Set();
+    const sichtbar = (el) => {
+      const s = getComputedStyle(el);
+      if (s.visibility === 'hidden' || s.display === 'none') return false;
+      const r = el.getBoundingClientRect();
+      return r.width > 2 && r.height > 2 && r.bottom > 0 && r.right > 0 && r.top < innerHeight && r.left < innerWidth;
+    };
+    const elemente = [...document.querySelectorAll('body *')].filter(el =>
+      [...el.childNodes].some(k => k.nodeType === 3 && k.textContent.trim()) && sichtbar(el));
+    for (const el of elemente) {
+      if (el.closest('.tapete, svg, .nur-vorlesen, [aria-hidden="true"] .avatar, .avatar, .nur-emoji, .reaktion .emoji, kbd.deko')) continue;
+      if (el.closest(':disabled, [aria-disabled="true"]')) continue;     // WCAG: abgeschaltetes zählt nicht
+      const text = [...el.childNodes].filter(k => k.nodeType === 3).map(k => k.textContent).join('').trim();
+      if (!/[\p{L}\p{N}]/u.test(text)) continue;                           // nur Emoji, Pfeile, Punkte
+      const s = getComputedStyle(el);
+      let vorne = zahl(s.color);
+      if (!vorne) continue;
+      // Deckkraft der Vorfahren bis zur nächsten Fläche wirkt auf den Text
+      let deck = 1;
+      for (let e = el; e; e = e.parentElement) deck *= Number(getComputedStyle(e).opacity);
+      if (deck < 0.999) { if (deck < 0.3) continue; vorne = [vorne[0], vorne[1], vorne[2], vorne[3] * deck]; }
+      const hinten = window.__vp4Grund(el);
+      if (!hinten) continue;
+      const wirklich = ueber(vorne, hinten);
+      const k = verhaeltnis(wirklich, hinten);
+      const groesse = parseFloat(s.fontSize), dick = Number(s.fontWeight) >= 700;
+      const grenze = (groesse >= 24 || (groesse >= 18.66 && dick)) ? 3 : 4.5;
+      if (k + 0.005 < grenze) {
+        const kennung = `${text.slice(0, 28)}|${hex(wirklich)}|${hex(hinten)}`;
+        if (gesehen.has(kennung)) continue;
+        gesehen.add(kennung);
+        probleme.push(`Kontrast ${k.toFixed(2)}:1 < ${grenze}:1: "${text.slice(0, 28)}" (${hex(wirklich)} auf ${hex(hinten)}, ${el.className || el.tagName.toLowerCase()})`);
+        if (probleme.length > 10) break;
+      }
+    }
+    return probleme;
+  };
+}
+"""
+
+# Jede Akzentfarbe in Hell und Dunkel: Schrift auf der Füllung, der
+# Akzent als Schrift auf den Flächen, eigene Sprechblase.
+AKZENT_JS = r"""
+async () => {
+  const { AKZENTE } = await import('./js/zustand.js');
+  const wurzel = document.documentElement;
+  const vorher = { theme: wurzel.dataset.theme, akzent: wurzel.dataset.akzent };
+  const probe = (vorne, hinten, unter = null) => {
+    const aussen = document.createElement('div');
+    for (const [k, v] of [['position', 'fixed'], ['left', '0'], ['top', '0'], ['z-index', '9999'], ['padding', '8px'], ['font', '20px sans-serif']]) aussen.style.setProperty(k, v);
+    aussen.style.setProperty('background-color', unter || 'var(--flaeche)');
+    const innen = document.createElement('span');
+    innen.style.setProperty('color', vorne);
+    innen.style.setProperty('background-color', hinten);
+    innen.textContent = 'Probe';
+    aussen.append(innen);
+    document.body.append(aussen);
+    return [aussen, innen];
+  };
+  const paare = [
+    ['var(--akzent-text)', 'var(--akzent-fuellung)', 'Schrift auf Füllung'],
+    ['var(--akzent-text-weich)', 'var(--akzent-fuellung)', 'Nebenschrift auf Füllung'],
+    ['var(--blase-ich-text)', 'var(--blase-ich)', 'eigene Sprechblase'],
+    ['var(--akzent-schrift)', 'var(--flaeche)', 'Akzentschrift auf Fläche'],
+    ['var(--akzent-schrift)', 'var(--grund)', 'Akzentschrift auf Grund'],
+    ['var(--akzent-schrift)', 'var(--akzent-weich)', 'Akzentschrift auf Akzent-Tönung'],
+  ];
+  const probleme = [];
+  for (const theme of ['light', 'dark']) {
+    for (const id of Object.keys(AKZENTE)) {
+      wurzel.dataset.theme = theme;
+      wurzel.dataset.akzent = id;
+      for (const [vorne, hinten, name] of paare) {
+        const [aussen, innen] = probe(vorne, hinten);
+        const hintergrund = window.__vp4Grund(innen);
+        const s = getComputedStyle(innen);
+        const m = s.color.match(/[\d.]+/g).map(Number);
+        const v = s.color.startsWith('color(') ? [m[0] * 255, m[1] * 255, m[2] * 255, m[3] ?? 1] : [m[0], m[1], m[2], m[3] ?? 1];
+        aussen.remove();
+        if (!hintergrund) { probleme.push(`Akzent ${id} (${theme}): ${name} nicht messbar`); continue; }
+        const lin = (c) => { c /= 255; return c <= 0.04045 ? c / 12.92 : ((c + 0.055) / 1.055) ** 2.4; };
+        const L = (c) => 0.2126 * lin(c[0]) + 0.7152 * lin(c[1]) + 0.0722 * lin(c[2]);
+        const echt = [0, 1, 2].map(i => v[i] * v[3] + hintergrund[i] * (1 - v[3]));
+        const a = L(echt), b = L(hintergrund);
+        const k = (Math.max(a, b) + 0.05) / (Math.min(a, b) + 0.05);
+        if (k < 4.5) probleme.push(`Akzent ${id} (${theme}): ${name} nur ${k.toFixed(2)}:1`);
+      }
+    }
+  }
+  wurzel.dataset.theme = vorher.theme;
+  wurzel.dataset.akzent = vorher.akzent;
+  return probleme;
+}
+"""
+
+
+def statisch_pruefen():
+    """Werte ausserhalb von tokens.css, unbekannte Symbole."""
+    import re
+    probleme = []
+    farbe = re.compile(r"#[0-9a-fA-F]{3,8}\b|\b(?:rgba?|hsla?)\(")
+    radius = re.compile(r"border(?:-[a-z]+)*-radius\s*:\s*[^;]*\b\d+(?:\.\d+)?px")
+    dauer = re.compile(r"(?:transition|animation)[a-z-]*\s*:[^;]*?(?<![\w-])\.?\d+(?:\.\d+)?m?s\b")
+    for datei in sorted((UI / "css").glob("*.css")):
+        if datei.name == "tokens.css":
+            continue
+        for nr, zeile in enumerate(datei.read_text(encoding="utf-8").splitlines(), 1):
+            ohne_url = re.sub(r'url\("[^"]*"\)', "", zeile)
+            if farbe.search(ohne_url):
+                probleme.append(f"{datei.name}:{nr}: Farbwert ausserhalb von tokens.css")
+            if radius.search(ohne_url):
+                probleme.append(f"{datei.name}:{nr}: Radius ausserhalb von tokens.css")
+            if dauer.search(ohne_url):
+                probleme.append(f"{datei.name}:{nr}: Dauer ausserhalb von tokens.css")
+    sprite = (UI / "icons" / "sprite.svg").read_text(encoding="utf-8")
+    vorhanden = set(re.findall(r'id="([a-z0-9-]+)"', sprite))
+    benutzt = set()
+    for datei in (UI / "js").rglob("*.js"):
+        text = datei.read_text(encoding="utf-8")
+        benutzt |= set(re.findall(r'\bic\("([a-z0-9-]+)"', text))
+        benutzt |= set(re.findall(r'\bsymbol:\s*"([a-z0-9-]+)"', text))
+        benutzt |= set(re.findall(r'\brundknopf\("([a-z0-9-]+)"', text))
+    for name in sorted(benutzt - vorhanden):
+        probleme.append(f"Symbol \"{name}\" fehlt in ui/icons/sprite.svg")
+    return probleme
 
 
 def pruefen(filter_text="", ausgeben=print):
@@ -181,6 +451,31 @@ def pruefen(filter_text="", ausgeben=print):
         with sync_playwright() as p:
             optionen = {"executable_path": pfad} if os.path.exists(pfad) else {}
             browser = p.chromium.launch(**optionen)
+            if not filter_text or filter_text == "statisch":
+                befunde = statisch_pruefen()
+                if befunde:
+                    fehler.append(("statisch", befunde))
+                    ausgeben("  [FEHL] Werte und Symbole")
+                    for x in befunde[:12]:
+                        ausgeben(f"         {x}")
+                else:
+                    ok += 1
+                    ausgeben("  [OK]   Werte nur in tokens.css, alle Symbole im Sprite")
+            if not filter_text or filter_text == "akzente":
+                seite = browser.new_page(viewport={"width": 1000, "height": 700})
+                seite.goto(f"{basis}&design=light")
+                seite.wait_for_timeout(600)
+                seite.evaluate(KONTRAST_JS)
+                befunde = seite.evaluate(AKZENT_JS)
+                seite.close()
+                if befunde:
+                    fehler.append(("akzente", befunde))
+                    ausgeben("  [FEHL] Akzentfarben")
+                    for x in befunde[:12]:
+                        ausgeben(f"         {x}")
+                else:
+                    ok += 1
+                    ausgeben("  [OK]   Alle 8 Akzentfarben schaffen 4.5:1 (hell und dunkel)")
             for name, (abfrage, aktion) in ANSICHTEN.items():
                 if filter_text and filter_text not in name:
                     continue
@@ -188,20 +483,33 @@ def pruefen(filter_text="", ausgeben=print):
                     for breite in (1440, 980):
                         if breite == 980 and design == "dark":
                             continue
+                        if name in NUR_EINMAL and (design, breite) != ("light", 1440):
+                            continue
+                        if name in NUR_BREIT and breite != 1440:
+                            continue
                         seite = browser.new_page(viewport={"width": breite, "height": 860}, device_scale_factor=1)
                         meldungen = []
                         seite.on("console", lambda m: m.type == "error" and meldungen.append(m.text))
                         seite.on("pageerror", lambda e: meldungen.append(str(e)))
                         seite.goto(f"{basis}&design={design}{abfrage}")
                         seite.wait_for_timeout(700)
-                        if aktion:
+                        for schritt in [x for x in aktion.split("|") if x]:
                             try:
-                                seite.evaluate(AKTION_JS, aktion)
+                                art, _, wert = schritt.partition(":")
+                                if art == "hover":
+                                    seite.hover(wert)
+                                elif art == "taste":
+                                    seite.keyboard.press(wert)
+                                elif art == "tippen":
+                                    seite.keyboard.type(wert)
+                                else:
+                                    seite.evaluate(AKTION_JS, schritt)
                             except Exception as e:
-                                meldungen.append(f"Aktion {aktion}: {e}")
+                                meldungen.append(f"Aktion {schritt}: {e}")
                         seite.wait_for_timeout(300)
                         datei = BILDER / f"{name}-{design}-{breite}.png"
                         seite.screenshot(path=str(datei))
+                        seite.evaluate(KONTRAST_JS)
                         probleme = meldungen + seite.evaluate(PRUEF_JS)
                         kennung = f"{name} ({design}, {breite}px)"
                         if probleme:

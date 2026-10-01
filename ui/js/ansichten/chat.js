@@ -8,15 +8,16 @@
 // =====================================================================
 
 import { h, ic, rundknopf, knopf, ersetzen, leeren, avatar, textMitLinks, uhrzeit,
-         tagTitel, gleicherTag, groesse, dauer, farbeFuer } from "../dom.js";
+         tagTitel, gleicherTag, groesse, dauer, farbeFuer, ring } from "../dom.js";
 import { rufe, auf } from "../bruecke.js";
-import { blatt, menue, menueAn, toast, bestaetigen } from "../blaetter.js";
-import { zustand } from "../zustand.js";
+import { blatt, menue, menueAn, menueSchliessen, toast, bestaetigen } from "../blaetter.js";
+import { scrollArt } from "../zustand.js";
 import { emojiWahl } from "./emoji.js";
 import { sicherheitBlatt } from "./kontakte.js";
 
 const SCHNELL = ["❤️", "👍", "😂", "😮", "😢", "🔥"];
 const LAUF_PAUSE = 5 * 60 * 1000;       // neuer Lauf nach 5 Minuten Pause
+const ZEIT_PAUSE = 15 * 60 * 1000;      // Uhrzeit über der Nachricht nach 15 Minuten
 
 let aktuell = null;                      // die eine offene Ansicht
 
@@ -51,14 +52,23 @@ class ChatAnsicht {
     this.abmelden = [];
     this.zuletztGetippt = 0;
     this.tippZeit = null;
+    // Wie viel ungelesen war, als der Chat aufging - dafür steht über der
+    // ersten davon "Neue Nachrichten". main.js setzt den Zähler gleich auf 0.
+    this.ungelesenStart = Math.max(0, Number(u.ungelesen) || 0);
+    this.neuSeitUnten = 0;
     this.bauen();
     this.laden();
+    // Den Kopf aktualisiert main.js nach jedem Nachladen der Liste
+    // (kontakt_geaendert trägt nur die ID, nicht die Unterhaltung).
     this.abmelden.push(
       auf("nachricht_neu", (e) => e.unterhaltung === this.u.id && this.neu(e.nachricht)),
       auf("nachricht_geaendert", (e) => e.unterhaltung === this.u.id && this.geaendert(e.nachricht)),
       auf("tippt", (e) => e.unterhaltung === this.u.id && this.tipptAnzeigen(e.name)),
-      auf("kontakt_geaendert", (e) => e.id === this.u.id && this.kopfNeu(e.unterhaltung)),
     );
+    // Esc schliesst den Infobereich (Blätter und Menüs fangen Esc vorher ab)
+    const esc = (e) => { if (e.key === "Escape" && this.info && !e.defaultPrevented) { e.preventDefault(); this.infoUmschalten(); } };
+    document.addEventListener("keydown", esc);
+    this.abmelden.push(() => document.removeEventListener("keydown", esc));
   }
 
   abbauen() {
@@ -70,7 +80,7 @@ class ChatAnsicht {
   /* ------------------------------------------------------------ Aufbau */
   bauen() {
     const u = this.u;
-    this.verlauf = h("div.verlauf.ruhig", { onscroll: () => this.gescrollt() });
+    this.verlauf = h("div.verlauf.ruhig", { onscroll: () => this.gescrollt(), role: "log", "aria-label": `Verlauf mit ${u.titel}`, tabindex: "0" });
     this.innen = h("div.verlauf-innen");
     this.klebtUnten = true;
     // Bilder laden nach dem ersten Zeichnen und schieben alles nach oben -
@@ -132,12 +142,12 @@ class ChatAnsicht {
     }
 
     ersetzen(this.leiste,
-      h("div.wer", { onclick: () => this.infoUmschalten(), title: "Infos" },
+      h("button.wer", { type: "button", onclick: () => this.infoUmschalten(), title: "Infos", "aria-label": `${u.art === "kanal" ? "#" + (u.kanal_name || u.titel) : u.titel} – Infos zeigen`, "aria-expanded": String(!!this.info) },
         u.art === "kanal" ? h("div.avatar.mittel.community", { style: { "--farbe": u.farbe || farbeFuer(u.id) } }, ic("hash", "ic-16"))
           : avatar(u.titel, u.farbe, "mittel", u.art === "dm" && u.online),
         h("div", { style: { "min-width": "0" } }, h("b", { text: u.art === "kanal" ? u.kanal_name || u.titel : u.titel }), h("small", unter))),
       schutz,
-      rundknopf("search", "Im Chat suchen", () => this.suchen()),
+      rundknopf("search", "Im Chat suchen (Strg F)", () => this.suchen()),
       rundknopf("info", "Infos", () => this.infoUmschalten()),
     );
   }
@@ -155,8 +165,10 @@ class ChatAnsicht {
   }
 
   /* ------------------------------------------------------------ Laden */
-  async laden(vorTs = null) {
-    const r = await rufe("nachrichten", this.u.id, vorTs);
+  async laden(vorTs = null, vorId = null) {
+    // Beim Nachladen auch die ID der ältesten geladenen Nachricht: sonst
+    // fallen Nachrichten mit genau derselben Zeit an der Seitengrenze weg.
+    const r = vorTs === null ? await rufe("nachrichten", this.u.id) : await rufe("nachrichten", this.u.id, vorTs, vorId);
     if (!r.ok) { toast(r.fehler, "fehler"); return; }
     this.mehr = !!r.mehr;
     const liste = r.liste || [];
@@ -165,7 +177,12 @@ class ChatAnsicht {
       this.allesZeichnen();
       this.verlauf.scrollTop = this.verlauf.scrollHeight;
       this.klebtUnten = true;
-      requestAnimationFrame(() => this.verlauf.classList.remove("ruhig"));
+      // Mit "Neue Nachrichten": dorthin, wenn alles Neue nicht auf einmal passt
+      if (this.neuTrenner) {
+        const oben = this.neuTrenner.offsetTop - 84;
+        if (oben < this.verlauf.scrollTop) { this.verlauf.scrollTop = Math.max(0, oben); this.klebtUnten = false; }
+      }
+      requestAnimationFrame(() => { this.verlauf.classList.remove("ruhig"); this.gescrollt(); });
       rufe("gelesen", this.u.id);
     } else if (liste.length) {
       const hoehe = this.verlauf.scrollHeight;
@@ -179,22 +196,38 @@ class ChatAnsicht {
     const v = this.verlauf;
     if (v.scrollTop < 120 && this.mehr && !this.laedt) {
       this.laedt = true;
-      this.laden(this.nachrichten[0]?.ts).finally(() => { this.laedt = false; });
+      this.laden(this.nachrichten[0]?.ts, this.nachrichten[0]?.id).finally(() => { this.laedt = false; });
     }
     const unten = v.scrollHeight - v.scrollTop - v.clientHeight < 140;
     this.klebtUnten = unten;
-    if (!unten && !this.knopfUnten) {
-      this.knopfUnten = h("button.nach-unten.glas", { type: "button", "aria-label": "Zur neuesten Nachricht", onclick: () => this.nachUnten(true) }, ic("arrow-down"));
+    if (unten) this.neuSeitUnten = 0;
+    this.knopfUntenSetzen(!unten);
+  }
+
+  /** Der runde Knopf "nach unten" - mit Zähler, wenn seitdem Neues kam */
+  knopfUntenSetzen(zeigen) {
+    if (zeigen && !this.knopfUnten) {
+      this.knopfUnten = h("button.nach-unten.glas.glas-stark", { type: "button", "aria-label": "Zur neuesten Nachricht", title: "Zur neuesten Nachricht", onclick: () => this.nachUnten(true) }, ic("arrow-down"));
       this.chat.append(this.knopfUnten);
-    } else if (unten && this.knopfUnten) {
-      this.knopfUnten.remove();
+    } else if (!zeigen && this.knopfUnten) {
+      const k = this.knopfUnten;
       this.knopfUnten = null;
+      k.classList.add("weg");
+      setTimeout(() => k.remove(), 200);
+    }
+    if (this.knopfUnten) {
+      this.knopfUnten.querySelector(".zaehler")?.remove();
+      if (this.neuSeitUnten > 0) {
+        this.knopfUnten.append(h("span.zaehler", { text: this.neuSeitUnten > 99 ? "99+" : String(this.neuSeitUnten) }));
+        this.knopfUnten.setAttribute("aria-label", `Zur neuesten Nachricht, ${this.neuSeitUnten} neu`);
+      }
     }
   }
 
   nachUnten(weich) {
     this.klebtUnten = true;
-    requestAnimationFrame(() => this.verlauf.scrollTo({ top: this.verlauf.scrollHeight, behavior: weich ? "smooth" : "auto" }));
+    this.neuSeitUnten = 0;
+    requestAnimationFrame(() => this.verlauf.scrollTo({ top: this.verlauf.scrollHeight, behavior: weich ? scrollArt() : "auto" }));
   }
 
   istUnten() {
@@ -213,14 +246,39 @@ class ChatAnsicht {
         h("p", { text: "Alles, was ihr hier schreibt, ist Ende-zu-Ende verschlüsselt. Discord bekommt nur Geheimtext zu sehen." })));
       return;
     }
+    // Wo fängt das Ungelesene an? Die letzten N Nachrichten der anderen.
+    this.neuAb = null;
+    this.neuTrenner = null;
+    if (this.ungelesenStart > 0) {
+      let rest = this.ungelesenStart;
+      for (let i = this.nachrichten.length - 1; i >= 0; i--) {
+        const n = this.nachrichten[i];
+        if (n.ich || n.art === "system") continue;
+        this.neuAb = n.id;
+        if (--rest === 0) break;
+      }
+    }
+    if (this.mehr) this.innen.append(h("div.mehr-laden", { "aria-hidden": "true" }, ic("arrow-up", "ic-14"), "Nach oben scrollen für Älteres"));
     this.nachrichten.forEach((n, i) => this.zeileEinfuegen(n, i));
     this.statusZeileSetzen();
+  }
+
+  /** "Heute 14:02" - der Tag fett, die Uhrzeit normal, wie in Nachrichten */
+  trenner(ts, pause = false) {
+    return h("div.tag-trenner" + (pause ? ".pause" : ""), { role: "separator", "aria-label": `${tagTitel(ts)}, ${uhrzeit(ts)}` },
+      pause ? null : h("b", { text: tagTitel(ts) }), pause ? uhrzeit(ts) : ` ${uhrzeit(ts)}`);
   }
 
   zeileEinfuegen(n, i) {
     const vorher = this.nachrichten[i - 1];
     if (!vorher || !gleicherTag(vorher.ts, n.ts)) {
-      this.innen.append(h("div.tag-trenner", { text: tagTitel(n.ts) }));
+      this.innen.append(this.trenner(n.ts));
+    } else if (n.ts - vorher.ts > ZEIT_PAUSE) {
+      this.innen.append(this.trenner(n.ts, true));
+    }
+    if (n.id === this.neuAb && !this.neuTrenner) {
+      this.neuTrenner = h("div.neu-trenner", { role: "separator", text: this.ungelesenStart === 1 ? "Neue Nachricht" : "Neue Nachrichten" });
+      this.innen.append(this.neuTrenner);
     }
     const zeile = this.zeileBauen(n);
     this.zeilen.set(n.id, zeile);
@@ -230,8 +288,9 @@ class ChatAnsicht {
   }
 
   gehoertZuLauf(a, b) {
+    // Der "Neue Nachrichten"-Trenner unterbricht einen Lauf
     return a && b && a.art !== "system" && b.art !== "system" && a.von === b.von
-      && b.ts - a.ts < LAUF_PAUSE && gleicherTag(a.ts, b.ts);
+      && b.ts - a.ts < LAUF_PAUSE && gleicherTag(a.ts, b.ts) && b.id !== this.neuAb;
   }
 
   laufKlassen(i) {
@@ -243,7 +302,7 @@ class ChatAnsicht {
     zeile.classList.toggle("lauf-weiter", weiter);
     zeile.classList.toggle("lauf-folgt", folgt);
     zeile.classList.toggle("neuer-lauf", !weiter);
-    const ohneBlase = n.art === "bild" || n.art === "video" || (n.art === "text" && nurEmoji(n.text) && !n.geloescht);
+    const ohneBlase = n.art === "bild" || n.art === "video" || n.art === "datei" || (n.art === "text" && nurEmoji(n.text) && !n.geloescht);
     zeile.classList.toggle("schwanz", !folgt && !ohneBlase && !n.reaktionen?.length);
     // Name und Bild in Gruppen nur einmal pro Lauf
     const name = zeile.querySelector(".absender");
@@ -272,14 +331,15 @@ class ChatAnsicht {
       spalte.append(h("div.reaktionen", n.reaktionen.map((r) =>
         h("button.reaktion" + (r.meine ? ".meine" : ""), {
           type: "button", title: r.namen?.join(", ") || "",
+          "aria-label": `${r.emoji} ${r.anzahl}${r.namen?.length ? ": " + r.namen.join(", ") : ""}`, "aria-pressed": String(!!r.meine),
           onclick: () => this.reagieren(n, r.emoji),
-        }, h("span.emoji", { text: r.emoji }), r.anzahl > 1 ? String(r.anzahl) : null))));
+        }, h("span.emoji", { "aria-hidden": "true", text: r.emoji }), r.anzahl > 1 ? h("span", { "aria-hidden": "true", text: String(r.anzahl) }) : null))));
     }
     zeile.append(spalte);
-    zeile.append(h("span.uhr", { text: uhrzeit(n.ts) }));
+    zeile.append(h("span.uhr", { "aria-hidden": "true", text: uhrzeit(n.ts) }));
 
     if (!n.geloescht) {
-      spalte.append(h("div.aktionspille.glas.glas-stark",
+      spalte.append(h("div.aktionspille.glas.glas-stark", { role: "toolbar", "aria-label": "Aktionen" },
         rundknopf("smile-plus", "Reagieren", (e) => this.reaktionsMenue(e.currentTarget, n), "klein"),
         this.darfSchreiben() ? rundknopf("reply", "Antworten", () => this.antworten(n), "klein") : null,
         rundknopf("ellipsis", "Mehr", (e) => this.kontextMenue(e.currentTarget.getBoundingClientRect().left, e.currentTarget.getBoundingClientRect().bottom + 4, n), "klein")));
@@ -298,24 +358,11 @@ class ChatAnsicht {
     }
     const d = n.datei;
     if ((n.art === "bild" || n.art === "video") && d) {
-      const medium = h("div.medium", { onclick: () => leuchtkasten(n) });
-      if (n.art === "bild") {
-        medium.append(h("img", { src: d.vorschau || d.url, alt: d.name || "Bild", loading: "lazy",
-          width: d.breite || undefined, height: d.hoehe || undefined }));
-      } else {
-        medium.append(h("video", { src: d.url, preload: "metadata", muted: true, playsinline: true }));
-        medium.append(h("div", { style: { position: "absolute" } }));
-      }
-      const teile = [medium];
-      if (n.text) teile.push(h("div.blase", { style: { "margin-top": "2px" } }, textMitLinks(n.text)));
-      if (d.fortschritt !== undefined && d.fortschritt < 1) teile.push(h("div.fortschritt", { style: { "margin-top": "6px", width: "100%" } }, h("div", { style: { width: `${Math.round(d.fortschritt * 100)}%` } })));
+      const teile = [this.mediumBauen(n, d)];
+      if (n.text) teile.push(h("div.blase.medium-text", textMitLinks(n.text)));
       return h("div", teile);
     }
-    if (n.art === "datei" && d) {
-      return h("div.dateikarte", { onclick: () => rufe("datei_oeffnen", n.id) },
-        h("div.dsymbol", ic("file-text", "ic-20")),
-        h("div", h("b", { text: d.name }), h("small", { text: d.fortschritt !== undefined && d.fortschritt < 1 ? `${Math.round(d.fortschritt * 100)} % von ${groesse(d.groesse)}` : groesse(d.groesse) })));
-    }
+    if (n.art === "datei" && d) return this.dateiBauen(n, d);
     if (n.art === "sprache" && d) {
       return h("div.blase", { style: { padding: "0" } }, spracheBauen(n));
     }
@@ -330,6 +377,96 @@ class ChatAnsicht {
     blase.append(...textMitLinks(t));
     if (n.bearbeitet) blase.append(h("span.bearbeitet", { text: "bearbeitet" }));
     return blase;
+  }
+
+  /** Bild oder Video - mit Platzhalter, solange es noch lädt. */
+  mediumBauen(n, d) {
+    const laedt = !d.url && !d.kaputt;
+    const zeile = h("div.medium" + (laedt ? ".laedt" : ""), {
+      role: "button", tabindex: "0",
+      "aria-label": d.kaputt ? `${n.art === "video" ? "Video" : "Bild"} kaputt` : laedt ? `${n.art === "video" ? "Video" : "Bild"} wird geladen` : `${n.art === "video" ? "Video" : "Bild"} ${d.name || ""} öffnen`,
+      onclick: () => { if (d.url) leuchtkasten(n); },
+      onkeydown: (e) => { if ((e.key === "Enter" || e.key === " ") && d.url) { e.preventDefault(); leuchtkasten(n); } },
+    });
+    // Platz freihalten, damit nichts springt, wenn das Bild kommt
+    const b = Number(d.breite) || 0, hh = Number(d.hoehe) || 0;
+    if (b > 0 && hh > 0) {
+      const max = 320;
+      const f = Math.min(1, max / b, max / hh);
+      zeile.classList.add("mit-mass");
+      zeile.style.setProperty("width", `${Math.max(120, Math.round(b * f))}px`);
+      zeile.style.setProperty("height", `${Math.max(90, Math.round(hh * f))}px`);
+    } else if (laedt || d.kaputt) {
+      zeile.style.setProperty("width", "240px");
+      zeile.style.setProperty("height", "180px");
+    }
+    if (d.kaputt) {
+      zeile.classList.add("kaputt");
+      zeile.append(ic("triangle-alert", "ic-28"), h("span", { text: n.art === "video" ? "Das Video kam beschädigt an." : "Das Bild kam beschädigt an." }));
+      return zeile;
+    }
+    if (n.art === "bild") {
+      const quelle = d.url || d.vorschau;
+      if (quelle) {
+        const img = h("img", { src: quelle, alt: d.name || "Bild", decoding: "async", draggable: "false" });
+        if (!d.url) img.classList.add("unscharf");                 // nur die kleine Vorschau
+        else if (d.vorschau && d.vorschau !== d.url) {
+          // Erst die Vorschau, dann weich das ganze Bild darüber
+          zeile.style.setProperty("background-image", `url("${d.vorschau}")`);
+          zeile.style.setProperty("background-size", "cover");
+        }
+        zeile.append(img);
+      } else zeile.classList.add("schimmer");
+    } else if (d.url) {
+      zeile.append(h("video", { src: d.url, preload: "metadata", muted: true, playsinline: true }), h("span.spielen", ic("play", "ic-20")));
+    } else if (d.vorschau) {
+      zeile.append(h("img.unscharf", { src: d.vorschau, alt: "" }));
+    } else zeile.classList.add("schimmer");
+    if (laedt) {
+      const anteil = typeof d.fortschritt === "number" ? d.fortschritt : null;
+      const r = ring(anteil ?? 0);
+      zeile._ring = r;
+      zeile.append(h("div.ueber",
+        h("div.kreis", anteil === null ? ic("download", "ic-20") : r),
+        h("small", { text: anteil === null ? "Wartet …" : `${Math.round(anteil * 100)} %${d.groesse ? " von " + groesse(d.groesse) : ""}` })));
+    }
+    return zeile;
+  }
+
+  /** Dateikarte - der Ring zeigt, wie weit sie schon da ist. */
+  dateiBauen(n, d) {
+    const laedt = !d.url && !d.kaputt && typeof d.fortschritt === "number" && d.fortschritt < 1;
+    let symbol;
+    if (d.kaputt) symbol = h("div.dsymbol.kaputt", ic("triangle-alert", "ic-20"));
+    else if (laedt) {
+      const r = ring(d.fortschritt);
+      symbol = h("div.dsymbol.laedt", r, ic("download", "ic-16"));
+    } else symbol = h("div.dsymbol", ic("file-text", "ic-20"));
+    const unter = d.kaputt ? "Beschädigt angekommen"
+      : laedt ? `${Math.round(d.fortschritt * 100)} % von ${groesse(d.groesse || 0)}`
+      : d.groesse ? groesse(d.groesse) : "";
+    const karte = h("button.dateikarte", {
+      type: "button", disabled: laedt || d.kaputt,
+      "aria-label": `Datei ${d.name || ""}${unter ? ", " + unter : ""}`,
+      onclick: () => this.dateiOeffnen(n),
+    }, symbol, h("div.dtext", h("b", { text: d.name || "Datei" }), unter ? h("small", { text: unter }) : null));
+    karte._ring = symbol.querySelector(".ring");
+    return karte;
+  }
+
+  /** Riskante Dateien (.exe, .bat …) fragt Python zurück - dann hier nachfragen */
+  async dateiOeffnen(n) {
+    const r = await rufe("datei_oeffnen", n.id);
+    if (r.ok) return;
+    if (r.warnung) {
+      const ja = await bestaetigen("Diese Datei wirklich öffnen?", r.warnung,
+        { ja: "Trotzdem öffnen", gefahr: true, symbol: "triangle-alert" });
+      if (!ja) return;
+      const r2 = await rufe("datei_oeffnen", n.id, true);
+      if (!r2.ok) toast(r2.fehler, "fehler", 5000);
+      return;
+    }
+    toast(r.fehler, "fehler", 5000);
   }
 
   statusZeileSetzen() {
@@ -357,18 +494,34 @@ class ChatAnsicht {
     const unten = this.istUnten() || n.ich;
     if (!this.nachrichten.length) leeren(this.innen);
     this.tipptWeg();
+    // Wer selbst schreibt, hat das Neue gesehen
+    if (n.ich && this.neuTrenner) { this.neuTrenner.remove(); this.neuTrenner = null; this.ungelesenStart = 0; }
     this.nachrichten.push(n);
     this.zeileEinfuegen(n, this.nachrichten.length - 1);
     this.statusZeileSetzen();
     if (unten) this.nachUnten(true);
+    else if (!n.ich) { this.neuSeitUnten += 1; this.knopfUntenSetzen(true); }
     if (!n.ich && document.hasFocus()) rufe("gelesen", this.u.id);
   }
 
   geaendert(n) {
     const i = this.nachrichten.findIndex((x) => x.id === n.id);
     if (i < 0) return;
-    this.nachrichten[i] = { ...this.nachrichten[i], ...n };
+    const vorher = this.nachrichten[i];
+    this.nachrichten[i] = { ...vorher, ...n };
     const alt = this.zeilen.get(n.id);
+    // Nur der Fortschritt einer Datei: den Ring weiterdrehen statt die
+    // ganze Zeile neu zu bauen (sonst flackert der Platzhalter)
+    const d = this.nachrichten[i].datei;
+    const ringEl = alt?.querySelector(".ring");
+    if (ringEl?.setzen && d && !d.url && !d.kaputt && typeof d.fortschritt === "number" && d.fortschritt < 1
+        && vorher.datei && !vorher.datei.url && typeof vorher.datei.fortschritt === "number") {
+      ringEl.setzen(d.fortschritt);
+      const text = `${Math.round(d.fortschritt * 100)} %${d.groesse ? " von " + groesse(d.groesse) : ""}`;
+      const klein = alt.querySelector(".ueber small, .dateikarte small");
+      if (klein) klein.textContent = text;
+      return;
+    }
     const neu = this.zeileBauen(this.nachrichten[i]);
     neu.classList.add(...[...alt.classList].filter((c) => c.startsWith("lauf") || c === "neuer-lauf" || c === "schwanz"));
     alt.replaceWith(neu);
@@ -392,7 +545,7 @@ class ChatAnsicht {
   springen(id) {
     const z = this.zeilen.get(id);
     if (!z) { toast("Die Nachricht ist nicht mehr geladen.", "info"); return; }
-    z.scrollIntoView({ behavior: "smooth", block: "center" });
+    z.scrollIntoView({ behavior: scrollArt(), block: "center" });
     z.classList.remove("blitz");
     void z.offsetWidth;
     z.classList.add("blitz");
@@ -407,23 +560,24 @@ class ChatAnsicht {
   reaktionsMenue(anker, n) {
     const r = anker.getBoundingClientRect();
     menue(r.left - 120, r.bottom + 6, [
-      h("div.reaktionsleiste", SCHNELL.map((e) => h("button", { type: "button", "aria-label": e, onclick: () => { menueSchliessenUndReagieren(this, n, e); } }, e)),
-        h("button", { type: "button", title: "Mehr", onclick: () => { emojiWahl(anker, (e) => this.reagieren(n, e)); } }, ic("plus"))),
-    ]);
+      h("div.reaktionsleiste", { role: "group", "aria-label": "Reagieren" }, SCHNELL.map((e) => h("button", { type: "button", role: "menuitem", "aria-label": `Mit ${e} reagieren`, onclick: () => { menueSchliessenUndReagieren(this, n, e); } }, e)),
+        h("button", { type: "button", role: "menuitem", title: "Mehr", "aria-label": "Anderes Emoji", onclick: () => { emojiWahl(anker, (e) => this.reagieren(n, e)); } }, ic("plus"))),
+    ], { label: "Reagieren" });
   }
 
   kontextMenue(x, y, n) {
     const eintraege = [
-      h("div.reaktionsleiste", SCHNELL.map((e) => h("button", { type: "button", "aria-label": e, onclick: () => menueSchliessenUndReagieren(this, n, e) }, e))),
+      h("div.reaktionsleiste", { role: "group", "aria-label": "Reagieren" }, SCHNELL.map((e) => h("button", { type: "button", role: "menuitem", "aria-label": `Mit ${e} reagieren`, onclick: () => menueSchliessenUndReagieren(this, n, e) }, e))),
       this.darfSchreiben() ? { text: "Antworten", symbol: "reply", aktion: () => this.antworten(n) } : null,
       n.text ? { text: "Kopieren", symbol: "copy", aktion: () => { navigator.clipboard?.writeText(n.text); toast("Kopiert"); } } : null,
       n.ich && n.art === "text" ? { text: "Bearbeiten", symbol: "pencil", aktion: () => this.bearbeiten(n) } : null,
-      n.datei ? { text: "Speichern unter …", symbol: "download", aktion: () => rufe("datei_speichern", n.id) } : null,
+      n.datei?.url ? { text: "Öffnen", symbol: "external-link", aktion: () => (n.art === "bild" || n.art === "video") ? leuchtkasten(n) : this.dateiOeffnen(n) } : null,
+      n.datei?.url ? { text: "Speichern unter …", symbol: "download", aktion: () => rufe("datei_speichern", n.id) } : null,
       { text: "Infos", symbol: "info", aktion: () => nachrichtInfo(n) },
       "-",
       { text: n.ich ? "Löschen …" : "Für mich löschen", symbol: "trash-2", gefahr: true, aktion: () => this.loeschen(n) },
     ];
-    menue(x, y, eintraege);
+    menue(x, y, eintraege, { label: "Nachricht" });
   }
 
   antworten(n) {
@@ -461,7 +615,7 @@ class ChatAnsicht {
   async loeschen(n) {
     if (n.ich) {
       blatt((zu) => [
-        h("div.kopfsymbol", { style: { background: "rgba(255,56,60,.12)", color: "var(--rot)" } }, ic("trash-2", "ic-20")),
+        h("div.kopfsymbol.gefahr", ic("trash-2", "ic-20")),
         h("h2", { text: "Nachricht löschen?" }),
         h("p", { text: "„Für alle“ entfernt sie auch bei den anderen und den Geheimtext aus Discord. Wer sie schon gelesen hat, hat sie gelesen." }),
         h("div.aktionen",
@@ -483,14 +637,14 @@ class ChatAnsicht {
 
   suchen() {
     blatt((zu) => {
-      const feld = h("input.feld", { placeholder: "Suchen …" });
+      const feld = h("input.feld", { placeholder: "Suchen …", "aria-label": "Im Chat suchen" });
       const liste = h("div", { style: { "max-height": "50vh", overflow: "auto", "margin-top": "12px" } });
       let warte;
       feld.addEventListener("input", () => {
         clearTimeout(warte);
         warte = setTimeout(async () => {
           const r = await rufe("suchen", this.u.id, feld.value);
-          ersetzen(liste, (r.liste || []).map((n) => h("div.eintrag.klickbar", { onclick: () => { zu(); this.springen(n.id); } },
+          ersetzen(liste, (r.liste || []).map((n) => h("div.eintrag.klickbar", { role: "button", tabindex: "0", onclick: () => { zu(); this.springen(n.id); }, onkeydown: (e) => e.key === "Enter" && e.currentTarget.click() },
             h("div.titel", n.text, h("small", { text: `${n.ich ? "Du" : n.von_name} · ${tagTitel(n.ts)} ${uhrzeit(n.ts)}` })))));
           if (feld.value && !(r.liste || []).length) liste.append(h("p", { text: "Nichts gefunden." }));
         }, 180);
@@ -500,9 +654,11 @@ class ChatAnsicht {
   }
 
   infoUmschalten() {
-    if (this.info) { this.info.remove(); this.info = null; return; }
-    this.info = h("aside.infobereich.glas.glas-stark");
+    const wer = this.leiste.querySelector(".wer");
+    if (this.info) { this.info.remove(); this.info = null; wer?.setAttribute("aria-expanded", "false"); return; }
+    this.info = h("aside.infobereich.glas.glas-stark", { "aria-label": "Infos" });
     this.chat.append(this.info);
+    wer?.setAttribute("aria-expanded", "true");
     this.infoFuellen();
   }
 
@@ -515,7 +671,7 @@ class ChatAnsicht {
       h("div.mitte",
         u.art === "kanal" ? h("div.avatar.gross.community", { style: { "--farbe": u.farbe || farbeFuer(u.id) } }, ic("hash", "ic-20")) : avatar(u.titel, u.farbe, "gross"),
         h("b", { text: u.art === "kanal" ? `#${u.kanal_name}` : u.titel }),
-        u.art === "dm" ? h("span.mono", { style: { color: "var(--text-2)", font: "var(--t-klein)" }, text: u.id }) : null),
+        u.art === "dm" ? h("span.mono", { text: u.id }) : null),
       h("div.gruppe",
         h("div.eintrag", ic("bell-off"), h("div.titel", { text: "Stummschalten" }),
           schalter(u.stumm, async (an) => { await rufe("unterhaltung_setzen", u.id, { stumm: an }); })),
@@ -523,7 +679,7 @@ class ChatAnsicht {
           schalter(u.angeheftet, async (an) => { await rufe("unterhaltung_setzen", u.id, { angeheftet: an }); })),
         u.art === "dm" ? h("div.eintrag.klickbar", { onclick: () => sicherheitBlatt(u.id) }, ic("fingerprint"), h("div.titel", { text: "Sicherheitsnummer" }), ic("chevron-right", "ic-16")) : null),
       (info.medien || []).length ? [h("div.gruppe-titel", { text: "Fotos & Videos" }),
-        h("div.mediengitter", info.medien.map((m) => h("img", { src: m.vorschau, alt: "", onclick: () => leuchtkasten(m) })))] : null,
+        h("div.mediengitter", info.medien.map((m) => h("img", { src: m.vorschau, alt: "Bild öffnen", tabindex: "0", role: "button", onclick: () => leuchtkasten(m), onkeydown: (e) => e.key === "Enter" && leuchtkasten(m) })))] : null,
       (info.mitglieder || []).length ? [h("div.gruppe-titel", { style: { "margin-top": "16px" }, text: "Zuletzt aktiv" }),
         h("div.gruppe", info.mitglieder.map((m) => h("div.eintrag", avatar(m.name, m.farbe, "klein"), h("div.titel", m.name, h("small.mono", { text: m.id })))))] : null,
     );
@@ -678,7 +834,7 @@ class ChatAnsicht {
       pegel.push(Math.sqrt(summe / puffer.length));
     }, 60);
 
-    const uhr = h("span", { style: { "font-variant-numeric": "tabular-nums" }, text: "0:00" });
+    const uhr = h("span.zeit", { text: "0:00", "aria-live": "off" });
     const ticken = setInterval(() => { uhr.textContent = dauer(Date.now() - start); }, 250);
     let abbrechen = false;
     const ende = () => { clearInterval(messen); clearInterval(ticken); strom.getTracks().forEach((t) => t.stop()); ctx.close(); ersetzen(this.reihe, this.knopfAnhang, this.feld, this.knopfEmoji, this.knopfMikro, this.knopfSenden); this.knoepfeUmschalten(); this.aufnahmeAbbrechen = null; };
@@ -702,7 +858,7 @@ class ChatAnsicht {
 }
 
 function menueSchliessenUndReagieren(ansicht, n, e) {
-  document.querySelector(".menue")?.remove();
+  menueSchliessen({ fokusZurueck: true });
   ansicht.reagieren(n, e);
 }
 
@@ -772,15 +928,17 @@ export function leuchtkasten(n) {
   const medium = (n.art === "video" || d.mime?.startsWith("video/"))
     ? h("video", { src: d.url, controls: true, autoplay: true })
     : h("img", { src: d.url || d.vorschau, alt: d.name || "" });
-  const el = h("div.leuchtkasten", { onclick: (e) => { if (e.target === el) zu(); } },
+  const vorher = document.activeElement;
+  const el = h("div.leuchtkasten", { role: "dialog", "aria-modal": "true", "aria-label": d.name || "Bild", onclick: (e) => { if (e.target === el) zu(); } },
     medium,
     h("div.leiste.glas",
       n.id ? rundknopf("download", "Speichern", () => rufe("datei_speichern", n.id)) : null,
       rundknopf("x", "Schliessen", () => zu())));
-  const taste = (e) => { if (e.key === "Escape") zu(); };
-  function zu() { el.remove(); document.removeEventListener("keydown", taste); }
-  document.addEventListener("keydown", taste);
+  const taste = (e) => { if (e.key === "Escape") { e.preventDefault(); e.stopPropagation(); zu(); } };
+  function zu() { el.remove(); document.removeEventListener("keydown", taste, true); if (vorher?.isConnected) vorher.focus({ preventScroll: true }); }
+  document.addEventListener("keydown", taste, true);
   document.body.append(el);
+  el.querySelector(".leiste .rund:last-child")?.focus();
 }
 
 function nachrichtInfo(n) {
