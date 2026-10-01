@@ -117,6 +117,34 @@ def _fenster_stil(fenster, dunkel: bool):
         logging.getLogger("vp4").debug("Fensterstil ging nicht", exc_info=True)
 
 
+def _selbsttest(fenster):
+    """Für bauen.py und den Windows-Workflow: Fenster öffnen, nachsehen, ob die
+    Oberfläche wirklich steht, Ergebnis in eine Datei schreiben, schliessen.
+
+    "Die .exe läuft noch nach 9 Sekunden" sagt nicht, ob man etwas sieht -
+    eine weisse Seite mit einem Skriptfehler läuft auch."""
+    import json
+    import threading
+    import time
+
+    def pruefen():
+        ergebnis = {"ok": False, "fehler": "Zeit abgelaufen"}
+        for _ in range(30):
+            time.sleep(0.5)
+            try:
+                if fenster.evaluate_js("document.querySelector('.einrichtung, .seitenleiste, .vollbild .einrichtung') !== null"):
+                    ergebnis = {"ok": True}
+                    break
+            except Exception as e:
+                ergebnis = {"ok": False, "fehler": f"{type(e).__name__}: {e}"}
+        ziel = os.environ.get("VP4_SELBSTTEST_DATEI")
+        if ziel:
+            Path(ziel).write_text(json.dumps(ergebnis, ensure_ascii=False), encoding="utf-8")
+        fenster.destroy()
+
+    threading.Thread(target=pruefen, daemon=True).start()
+
+
 def main():
     _pakete_pruefen()
     _protokoll_einrichten()
@@ -153,6 +181,8 @@ def main():
         raise
     fenster_ref["fenster"] = fenster
     fenster.events.shown += lambda: _fenster_stil(fenster, dunkel)
+    if os.environ.get("VP4_SELBSTTEST_START"):
+        fenster.events.shown += lambda: _selbsttest(fenster)
     fenster.events.closed += lambda: dienst.beenden()
     try:
         webview.start(gui="edgechromium" if sys.platform == "win32" else None,
