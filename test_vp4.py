@@ -1668,7 +1668,7 @@ def test_verfahrensliste():
     }
     fehler = []
     for name, info in VERFAHREN.items():
-        if info["key"] == "rsa":
+        if info["key"] in ("rsa", "pq", "age"):   # Schlüsselpaare; PQ und age prüft tests/test_krypto_neu.py
             continue                       # braucht zwei verschiedene Schlüssel
         try:
             info["enc"]("Testtext ABC", passende_schluessel[info["key"]])
