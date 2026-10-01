@@ -22,3 +22,7 @@ VP4 Schluessel.md
 # erste discord_konfig.py). Sie sind durch transport.py und
 # discord_transport.py ersetzt und sollen nicht mit ins Repo.
 _to_delete/
+
+# Lokale Python-Umgebung und Screenshots der UI-Pruefung
+.venv/
+tests/screenshots/

@@ -1,0 +1,195 @@
+/* =====================================================================
+   rahmen.css - Aufteilung des Fensters und die Seitenleiste
+   ===================================================================== */
+
+#app {
+  position: relative; z-index: 1;
+  height: 100vh;
+  display: grid;
+  grid-template-columns: var(--leiste-breite) minmax(0, 1fr);
+  gap: var(--rand-fenster);
+  padding: var(--rand-fenster);
+}
+
+/* --- Seitenleiste: schwebendes Glas ------------------------------------ */
+.seitenleiste {
+  display: flex; flex-direction: column;
+  min-height: 0;
+  border-radius: var(--r-fenster);
+  padding: 12px 10px 10px;
+  overflow: hidden;
+  --punkt-ring: var(--glas-solide);
+}
+.leiste-kopf { display: flex; flex-direction: column; gap: 10px; padding: 0 2px 10px; }
+.leiste-titelzeile { display: flex; align-items: center; justify-content: space-between; padding: 2px 4px 0 8px; min-height: 36px; }
+.leiste-titelzeile h1 { font: var(--t-gross); font-size: 24px; line-height: 30px; letter-spacing: var(--laufweite-titel); margin: 0; }
+.leiste-liste { flex: 1; min-height: 0; overflow-y: auto; margin: 0 -4px; padding: 2px 4px; }
+.leiste-abschnitt { font: var(--t-mini); font-weight: 600; color: var(--text-2); padding: 12px 10px 4px; }
+.leiste-zusatz:empty { display: none; }
+
+.chatzeile {
+  display: flex; align-items: center; gap: 11px;
+  height: var(--zeile-chat); padding: 0 10px;
+  border-radius: var(--r-zeile);
+  cursor: pointer;
+  transition: background var(--dauer-kurz);
+}
+.chatzeile + .chatzeile { margin-top: 1px; }
+.chatzeile:hover { background: var(--flaeche-hover); }
+.chatzeile:active { background: var(--flaeche-aktiv); }
+.chatzeile[aria-selected="true"] { background: var(--akzent-fuellung); color: var(--akzent-text); --punkt-ring: var(--akzent-fuellung); }
+.chatzeile[aria-selected="true"] .vorschau,
+.chatzeile[aria-selected="true"] .zeit,
+.chatzeile[aria-selected="true"] .stumm,
+.chatzeile[aria-selected="true"] .unten .ic { color: var(--akzent-text-weich); }
+.chatzeile[aria-selected="true"] .zaehler { background: var(--akzent-text); color: var(--akzent-fuellung); }
+.chatzeile .mitte { flex: 1; min-width: 0; }
+.chatzeile .oben { display: flex; align-items: baseline; gap: 8px; }
+.chatzeile .name { flex: 1; min-width: 0; font: var(--t-kopf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.chatzeile .zeit { font: var(--t-klein); color: var(--text-2); flex: none; font-variant-numeric: tabular-nums; }
+.chatzeile .unten { display: flex; align-items: center; gap: 6px; margin-top: 2px; }
+.chatzeile .unten .ic { color: var(--text-2); }
+.chatzeile .unten .warnsymbol { color: var(--rot); }
+.chatzeile .vorschau {
+  flex: 1; min-width: 0; font: var(--t-hinweis); color: var(--text-2);
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.chatzeile.ungelesen .vorschau { color: var(--text); }
+.chatzeile.ungelesen .zeit { color: var(--akzent-schrift); font-weight: 600; }
+.chatzeile[aria-selected="true"].ungelesen .zeit { color: var(--akzent-text); }
+.chatzeile .stumm { color: var(--text-2); display: inline-flex; }
+.chatzeile.kanal { height: var(--zeile-kanal); padding-left: 12px; gap: 8px; }
+.chatzeile.kanal .name { font: var(--t-text); font-weight: 500; color: var(--text-2); }
+.chatzeile.kanal .ic { color: var(--text-3); }
+.chatzeile.kanal:hover .name { color: var(--text); }
+.chatzeile.kanal[aria-selected="true"] .name, .chatzeile.kanal[aria-selected="true"] .ic { color: var(--akzent-text); }
+.chatzeile.kanal.ungelesen .name { font-weight: 700; color: var(--text); }
+.chatzeile.kanal.ungelesen[aria-selected="true"] .name { color: var(--akzent-text); }
+
+.werkzeugzeile {
+  display: flex; align-items: center; gap: 12px;
+  height: var(--zeile-werkzeug); padding: 0 10px; border-radius: var(--r-zeile);
+  cursor: pointer; font: var(--t-text); font-weight: 500;
+}
+.werkzeugzeile + .werkzeugzeile { margin-top: 1px; }
+.werkzeugzeile:hover { background: var(--flaeche-hover); }
+.werkzeugzeile[aria-selected="true"] { background: var(--akzent-fuellung); color: var(--akzent-text); }
+.werkzeugzeile .symbol {
+  display: grid; place-items: center; width: 28px; height: 28px; border-radius: var(--r-klein);
+  color: var(--weiss); flex: none; box-shadow: inset 0 1px 0 var(--glanz-zart);
+}
+.werkzeugzeile[aria-selected="true"] .symbol { box-shadow: 0 0 0 1.5px var(--glanz); }
+
+/* --- Kopf einer geöffneten Community ------------------------------------
+   Eine getönte Karte in der Farbe der Community - KEIN Glas (das wäre Glas
+   auf Glas), sondern eine zarte Fläche im Glas. */
+.community-held {
+  position: relative;
+  margin: 0 2px 6px; padding: 10px 12px 12px;
+  border-radius: var(--r-karte);
+  background:
+    radial-gradient(120% 90% at 0% 0%, color-mix(in srgb, var(--farbe) 30%, transparent), transparent 70%),
+    color-mix(in srgb, var(--farbe) 10%, var(--flaeche-hover));
+  box-shadow: inset 0 0 0 .5px color-mix(in srgb, var(--farbe) 30%, transparent), inset 0 1px 0 var(--glanz-zart);
+  overflow: hidden;
+}
+.community-held .held-oben { display: flex; align-items: center; justify-content: space-between; margin: -2px -6px 8px -6px; }
+.community-held .zurueck {
+  display: inline-flex; align-items: center; gap: 2px;
+  height: 28px; padding: 0 10px 0 4px; border: 0; border-radius: var(--r-kapsel);
+  background: transparent; color: var(--text-2); font: var(--t-klein); font-weight: 600; cursor: pointer;
+}
+.community-held .zurueck:hover { background: var(--flaeche-hover); color: var(--text); }
+.community-held .held-mitte { display: flex; align-items: center; gap: 12px; }
+.community-held .avatar.community { width: 52px; height: 52px; font-size: 26px; box-shadow: var(--schatten-klein), inset 0 1px 0 var(--glanz); }
+.community-held .held-text { flex: 1; min-width: 0; }
+.community-held .held-text b {
+  display: block; font: var(--t-titel3); letter-spacing: -.01em;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.community-held .held-text small { display: flex; align-items: center; gap: 6px; font: var(--t-klein); color: var(--text-2); margin-top: 2px; white-space: nowrap; }
+.community-held .held-text small .marke { height: 18px; padding: 0 6px; }
+.community-held .held-knoepfe { display: flex; gap: 6px; margin-top: 12px; }
+.community-held .held-knoepfe .knopf { flex: 1; min-height: 30px; padding: 0 10px; font: var(--t-klein); font-weight: 600; background: var(--flaeche-hover); }
+.community-held .held-knoepfe .knopf:hover { background: var(--flaeche-aktiv); }
+.community-held .held-knoepfe .knopf.primaer { background: var(--akzent-fuellung); color: var(--akzent-text); }
+
+.kanal-kopf { display: flex; align-items: center; padding: 10px 6px 4px 10px; }
+.kanal-kopf span { flex: 1; font: var(--t-mini); font-weight: 600; color: var(--text-2); }
+
+/* --- Fuss: das eigene Profil ---------------------------------------------- */
+.leiste-fuss {
+  display: flex; align-items: center; gap: 10px;
+  margin-top: 8px; padding: 8px 6px 2px 8px;
+  border-top: 1px solid var(--trenner);
+}
+.leiste-fuss .ich {
+  flex: 1; min-width: 0; display: flex; align-items: center; gap: 10px;
+  cursor: pointer; border-radius: var(--r-feld); padding: 4px; margin: -4px;
+  border: 0; background: transparent; color: inherit; text-align: left; font: inherit;
+}
+.leiste-fuss .ich:hover { background: var(--flaeche-hover); }
+.leiste-fuss .ich b { display: block; font: var(--t-kopf); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.leiste-fuss .ich span { display: block; font: var(--t-mini); color: var(--text-2); font-family: var(--schrift-mono); white-space: nowrap; }
+.verbindungspunkt {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 11px; height: 11px; border-radius: 50%;
+  background: var(--text-3); box-shadow: 0 0 0 2px var(--glas-solide);
+}
+.verbindungspunkt.an { background: var(--gruen); }
+.verbindungspunkt.fehler { background: var(--rot); }
+
+/* --- Hauptfläche --------------------------------------------------------- */
+.haupt {
+  position: relative;
+  min-width: 0; min-height: 0;
+  border-radius: var(--r-fenster);
+  background: var(--hauptflaeche);
+  box-shadow: var(--hauptflaeche-licht), var(--schatten-panel);
+  overflow: hidden;
+}
+:root[data-transparenz="aus"] .haupt { background: var(--flaeche); }
+
+/* Schmales Fenster: Seitenleiste wird zur Symbolleiste */
+@media (max-width: 1100px) {
+  :root { --leiste-breite: var(--leiste-breite-mittel); }
+}
+.nur-schmal { display: none; }
+@media (max-width: 1000px) {
+  :root { --leiste-breite: var(--leiste-breite-schmal); }
+  .seitenleiste .weg-wenn-schmal { display: none !important; }
+  .seitenleiste .nur-schmal { display: inline-flex; }
+  .seitenleiste .segment { grid-auto-flow: row; gap: 4px; padding: 4px; border-radius: var(--r-blase); }
+  .seitenleiste .segment button { height: 34px; }
+  .seitenleiste .segment .pille { display: none; }
+  .seitenleiste .segment button[aria-selected="true"] { background: var(--segment-pille); box-shadow: var(--schatten-klein); }
+  .chatzeile, .werkzeugzeile { justify-content: center; padding: 0; }
+  .chatzeile .mitte { display: none; }
+  .chatzeile.kanal .name, .chatzeile.kanal .zaehler { display: none; }
+  .chatzeile.ungelesen:not(.kanal) { position: relative; }
+  .chatzeile.ungelesen:not(.kanal)::after {
+    content: ""; position: absolute; top: 9px; right: 13px; width: 11px; height: 11px; border-radius: 50%;
+    background: var(--akzent); box-shadow: 0 0 0 2px var(--glas-solide);
+  }
+  .chatzeile.kanal.ungelesen::after { content: ""; width: 6px; height: 6px; border-radius: 50%; background: var(--akzent); margin-left: 2px; }
+  .chatzeile[aria-selected="true"].ungelesen::after { background: var(--akzent-text); box-shadow: none; }
+  .community-held { padding: 8px 4px; margin: 0 0 6px; display: grid; justify-items: center; gap: 6px; }
+  .community-held .held-oben { margin: 0; }
+  .community-held .held-mitte { flex-direction: column; }
+  .community-held .avatar.community { width: 40px; height: 40px; font-size: 20px; }
+  .kanal-kopf { justify-content: center; padding: 6px 0; }
+  .leiste-fuss { flex-direction: column; gap: 6px; padding: 8px 0 2px; }
+  .leiste-fuss .ich { flex: none; margin: 0; }
+}
+
+/* --- Seiten in der Hauptfläche ------------------------------------------- */
+.seite { position: absolute; inset: 0; overflow-y: auto; padding: 28px 36px 40px; }
+.seite-kopf { display: flex; align-items: flex-end; gap: var(--a4); margin-bottom: var(--a6); }
+.seite-kopf h1 { font: var(--t-gross); letter-spacing: var(--laufweite-titel); margin: 0; flex: 1; }
+.seite-kopf p { margin: 4px 0 0; color: var(--text-2); }
+.seite-kopf .kachel {
+  display: grid; place-items: center; width: 44px; height: 44px; flex: none;
+  border-radius: var(--r-feld); background: var(--farbe); color: var(--weiss);
+  box-shadow: inset 0 1px 0 var(--glanz-zart);
+}
+.inhalt-schmal { max-width: 720px; }

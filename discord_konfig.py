@@ -2,56 +2,40 @@
 # -*- coding: utf-8 -*-
 """
 =====================================================================
- discord_konfig.py - die eingebauten Discord-Zugangsdaten
+ discord_konfig.py - der eingebaute Discord-Zugang
 =====================================================================
 Hier stehen absichtlich nur leere Platzhalter. Die echten Werte setzt
 der GitHub-Workflow beim Bauen der .exe ein (Schritt "Discord-Zugang
 einsetzen" in .github/workflows/release.yml); sie kommen dort aus den
-Repository-Secrets und landen nur in der fertigen .exe - nie in diesem
-Quelltext.
+Repository-Secrets DISCORD_BOT_TOKEN und DISCORD_KANAL_IDS und landen nur
+in der fertigen .exe - nie in diesem Quelltext. Ein Test wacht darüber.
 
-WARUM DIESE DATEI ÜBERHAUPT EXISTIERT
---------------------------------------
-Damit Freunde nichts einrichten müssen. Sie bekommen die VP4.exe,
-starten sie und können schreiben - Token und Kanal stecken schon drin.
-Müsste jeder die Werte von Hand eintragen, würde es kaum jemand tun.
-
-WARUM DIE WERTE NICHT EINFACH HIER STEHEN
-------------------------------------------
-Stünde hier ein echter Bot-Token und die Datei würde committet, gäbe
-es zwei Probleme statt einem: GitHubs Secret-Scanning erkennt ihn in
-einem öffentlichen Repo automatisch und lässt Discord ihn umgehend
-sperren, UND jeder, der den Quelltext liest, könnte ihn missbrauchen -
-selbst wenn er nicht gesperrt würde.
-
-Zum Testen aus dem Quelltext heraus (python VP4.py) bleibt diese Datei
-leer. Token und Kanal-ID trägt man dann unter Einstellungen → Discord
-von Hand ein; was dort steht, geht der eingebauten Voreinstellung
-immer vor.
+WARUM ÜBERHAUPT EIN EINGEBAUTER ZUGANG
+---------------------------------------
+Damit jeder VP4 von GitHub herunterladen und sofort schreiben kann, ohne
+einen eigenen Discord-Bot anzulegen. Leon hat das am 01.10.2026 so
+entschieden - in Kenntnis dessen, was unten steht.
 
 EHRLICH DAZU
 -------------
-In der .exe ist der Token nicht wirklich versteckt - wer die Datei hat,
-kann ihn mit etwas Mühe herausholen. Für einen Freundeskreis, dem man
-die Datei ohnehin persönlich schickt, ist das vertretbar. Diese .exe
-sollte man deshalb nicht öffentlich zum Download anbieten.
+In der .exe ist der Token nicht versteckt; wer will, holt ihn heraus.
+Die NACHRICHTEN bleiben trotzdem geheim - sie sind Ende-zu-Ende
+verschlüsselt, der Bot sieht nur Geheimtext. Was jemand mit dem Token
+aber kann:
+  - den Kanal mit Unsinn fluten oder Zeilen löschen (alle benutzen
+    denselben Bot, also auch dieselben Rechte),
+  - das gemeinsame Kontingent von 1000 Anmeldungen pro Tag aufbrauchen.
+    Dann setzt Discord den Token zurück, und jede VP4-Kopie verliert den
+    Discord-Weg, bis es eine neue Version gibt.
+Der Weg zurück steht in der README ("Wenn der Discord-Zugang gesperrt
+ist"). Wer das nicht will, trägt unter Einstellungen → Discord einen
+eigenen Bot ein - der geht dem eingebauten immer vor.
+
+KANAL_IDS: eine oder mehrere Kanal-IDs, mit Komma getrennt. Mehrere
+Kanäle verteilen das Discord-Limit (rund 5 Nachrichten in 5 Sekunden pro
+Kanal), das sich alle VP4-Nutzer teilen.
 =====================================================================
 """
 
 BOT_TOKEN = ""
-KANAL_ID = ""
-
-# Der Schlüssel, den alle mit derselben VP4.exe teilen. Damit können Freunde
-# sofort schreiben, ohne vorher einen Schlüssel auszutauschen - das war
-# ausdrücklich so gewollt.
-#
-# Ehrlich dazu: Das ist ein GRUPPEN-Schlüssel. Gegen Discord und gegen
-# Fremde im Server schützt er vollständig, untereinander gar nicht - wer
-# dieselbe .exe hat, kann jede Nachricht im Kanal mitlesen, auch die
-# zwischen zwei anderen. Für einen Freundeskreis ist das ein Gruppenchat,
-# und genau so steht es auch im Programm.
-#
-# Wer es zwischen zwei bestimmten Leuten dichter haben will, trägt für den
-# Freund einen eigenen Schlüssel ein (🔑 neben der Freundesliste). Der geht
-# dem Gruppenschlüssel immer vor.
-GRUPPEN_SCHLUESSEL = ""
+KANAL_IDS = ""

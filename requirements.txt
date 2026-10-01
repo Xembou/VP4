@@ -1,0 +1,12 @@
+# VP4 5 - einmalig installieren:   pip install -r requirements.txt
+# Geprüft mit Python 3.13 (Windows 10/11).
+pywebview>=6.2          # Fenster mit Edge WebView2 (bringt pythonnet mit)
+cryptography>=50        # AES, ChaCha20, X25519, Ed25519, ML-KEM/HPKE, GCM-SIV
+argon2-cffi>=25.1       # Master-Passwort
+PyNaCl>=1.6             # XChaCha20-Poly1305
+pyrage>=1.4             # age-Format
+discord.py>=2.7         # Chat über Discord
+pillow>=11              # Vorschaubilder, Icon
+
+# Nur zum Bauen und Testen:
+#   pip install pyinstaller playwright

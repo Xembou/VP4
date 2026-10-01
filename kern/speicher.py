@@ -38,7 +38,7 @@ from pathlib import Path
 
 from cryptography.hazmat.primitives.ciphers.aead import AESGCM
 
-from krypto import (ARGON2_STANDARD, KDF_PBKDF2, PBKDF2_RUNDEN,
+from kern.krypto import (ARGON2_STANDARD, KDF_PBKDF2, PBKDF2_RUNDEN,
                     ModernCrypto)
 
 
@@ -55,7 +55,8 @@ def _base_dir() -> Path:
     """
     if getattr(sys, "frozen", False):
         return Path(sys.executable).parent
-    return Path(__file__).resolve().parent
+    # kern/ liegt eine Ebene unter dem Programmordner
+    return Path(__file__).resolve().parent.parent
 
 
 BASE_DIR = _base_dir()
@@ -534,7 +535,7 @@ class GruppenStore:
 
     def erstellen(self, name: str) -> str:
         """Legt eine neue Gruppe an und gibt ihre Kennung zurück."""
-        from krypto import ModernCrypto
+        from kern.krypto import ModernCrypto
 
         gruppen_id = gruppen_id_erzeugen()
         with self._lock:

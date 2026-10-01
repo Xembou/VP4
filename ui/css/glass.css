@@ -1,0 +1,172 @@
+/* =====================================================================
+   glass.css - das Material und die Grundfläche
+   =====================================================================
+   Apples Regel für Liquid Glass, und die gilt hier auch:
+     - Glas gehört nur auf die Ebene, die ÜBER dem Inhalt schwebt:
+       Seitenleiste, Werkzeugleiste, Eingabezeile, Menüs, Blätter.
+     - Inhalt selbst (Sprechblasen, Listenzeilen, Karten) ist massiv.
+     - Nie Glas auf Glas.
+   Der Inhalt scrollt UNTER Werkzeugleiste und Eingabezeile durch - nur
+   dann hat die Unschärfe überhaupt etwas zu zeigen.
+   ===================================================================== */
+
+*, *::before, *::after { box-sizing: border-box; }
+
+html, body {
+  margin: 0;
+  height: 100%;
+  overflow: hidden;
+  font: var(--t-text);
+  color: var(--text);
+  background: var(--grund);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
+  user-select: none;
+}
+
+/* Die Tapete. Sie bewegt sich ganz langsam - kaum sichtbar, aber das
+   Glas wirkt dadurch lebendig. Mit "Bewegung reduzieren" steht sie still. */
+.tapete {
+  position: fixed;
+  inset: -10%;
+  background: var(--tapete);
+  z-index: 0;
+  animation: tapete-treiben var(--dauer-tapete) ease-in-out infinite alternate;
+  transition: background var(--dauer-lang) var(--sanft);
+}
+@keyframes tapete-treiben {
+  from { transform: translate3d(-2%, -1%, 0) scale(1.02); }
+  to   { transform: translate3d(2%, 1.5%, 0) scale(1.06); }
+}
+
+.glas {
+  position: relative;
+  background: var(--glas-fuellung);
+  -webkit-backdrop-filter: var(--glas-blur);
+  backdrop-filter: var(--glas-blur);
+  border: 1px solid var(--glas-rand);
+  box-shadow:
+    inset 0 1px 0 var(--glas-licht),
+    inset 0 -1px 0 var(--glas-unterkante),
+    var(--glas-schatten);
+  isolation: isolate;
+}
+/* Menüs, Blätter, Hinweise: dichter und weicher - darunter steht Text,
+   der sonst durchscheint und mit dem Menütext kollidiert. */
+.glas-stark {
+  background: var(--glas-fuellung-stark);
+  -webkit-backdrop-filter: var(--glas-blur-stark);
+  backdrop-filter: var(--glas-blur-stark);
+}
+
+/* Optional: echte Lichtbrechung über einen SVG-Filter. Geht nur in
+   Chromium (also im Edge-WebView von Windows) und kostet Leistung -
+   deshalb nur mit der Einstellung "Glas stark". */
+:root[data-glas="stark"] .glas.bricht {
+  -webkit-backdrop-filter: var(--glas-blur-bricht);
+  backdrop-filter: var(--glas-blur-bricht);
+}
+
+/* Ohne Unschärfe (alte Grafik, "Transparenz reduzieren"): massiv statt
+   halb durchsichtig, sonst wäre Text auf der bunten Tapete schlecht lesbar. */
+:root[data-transparenz="aus"] .glas,
+:root[data-transparenz="aus"] .glas-stark {
+  background: var(--glas-solide);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) {
+  .glas, .glas-stark { background: var(--glas-solide); }
+}
+
+/* Kontinuierliche Ecken wie bei Apple, wo es der Browser kann (Chromium
+   139+). Nur auf grossen Flächen - Kapseln (Knöpfe, Eingabezeile,
+   Hinweise) und Sprechblasen bleiben rund, sonst werden sie eckig. */
+@supports (corner-shape: superellipse(2)) {
+  .seitenleiste, .haupt, .einrichtung {
+    corner-shape: var(--ecke-form);
+    border-radius: var(--r-fenster-glatt);
+  }
+  .blatt { corner-shape: var(--ecke-form); border-radius: var(--r-blatt-glatt); }
+  .karte, .gruppe, .werkzeug-karte, .infobereich, .community-held {
+    corner-shape: var(--ecke-form);
+    border-radius: var(--r-karte-glatt);
+  }
+}
+
+/* --- Bewegung reduzieren ------------------------------------------------
+   Vom System (prefers-reduced-motion) oder in den Einstellungen. Nicht
+   alles abschalten: Überblenden bleibt, nur Bewegung (Schieben, Skalieren,
+   Federn) fällt weg - so beschreibt es Apple auch. */
+@media (prefers-reduced-motion: reduce) {
+  .tapete { animation: none !important; }
+  *, *::before, *::after {
+    animation-name: einblenden !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+  }
+  .blatt.weg, .abdunkler.weg, .toast.weg { animation-name: ausblenden !important; }
+  .knopf:active, .rund:active, .werkzeug-karte:hover { transform: none !important; }
+}
+:root[data-bewegung="aus"] .tapete { animation: none !important; }
+:root[data-bewegung="aus"] *, :root[data-bewegung="aus"] *::before, :root[data-bewegung="aus"] *::after {
+  animation-name: einblenden !important;
+  animation-iteration-count: 1 !important;
+  scroll-behavior: auto !important;
+}
+:root[data-bewegung="aus"] .blatt.weg, :root[data-bewegung="aus"] .abdunkler.weg,
+:root[data-bewegung="aus"] .toast.weg { animation-name: ausblenden !important; }
+:root[data-bewegung="aus"] .knopf:active, :root[data-bewegung="aus"] .rund:active,
+:root[data-bewegung="aus"] .werkzeug-karte:hover { transform: none !important; }
+
+/* --- Fokus: immer sichtbar, aber nur bei Tastatur ------------------------ */
+:focus { outline: none; }
+:focus-visible {
+  outline: 2px solid var(--fokus);
+  outline-offset: 2px;
+}
+/* In Listen, die scrollen, würde ein Ring aussen abgeschnitten - dort
+   liegt er innen. Auf gefüllten (gewählten) Zeilen in der Schriftfarbe. */
+.chatzeile:focus-visible, .werkzeugzeile:focus-visible, .eintrag:focus-visible,
+.schnellwahl-zeile:focus-visible, .menue button:focus-visible,
+.einstellungen nav button:focus-visible, .verfahrensliste button:focus-visible {
+  outline-offset: -2px;
+}
+.chatzeile[aria-selected="true"]:focus-visible,
+.werkzeugzeile[aria-selected="true"]:focus-visible,
+.einstellungen nav button[aria-selected="true"]:focus-visible {
+  outline-color: var(--akzent-text);
+}
+
+::selection { background: var(--akzent-ring); }
+
+/* Rollbalken wie unter macOS: schmal, nur beim Drüberfahren deutlich */
+* { scrollbar-width: thin; scrollbar-color: transparent transparent; }
+*:hover { scrollbar-color: var(--text-4) transparent; }
+::-webkit-scrollbar { width: 10px; height: 10px; }
+::-webkit-scrollbar-thumb {
+  background: transparent; border-radius: var(--r-kapsel);
+  border: 3px solid transparent; background-clip: padding-box;
+}
+*:hover::-webkit-scrollbar-thumb { background-color: var(--text-4); }
+::-webkit-scrollbar-track { background: transparent; }
+
+.ic {
+  width: 18px; height: 18px;
+  stroke-width: 1.75;
+  flex: none;
+  vertical-align: middle;
+}
+.ic-20 { width: 20px; height: 20px; }
+.ic-16 { width: 16px; height: 16px; }
+.ic-14 { width: 14px; height: 14px; stroke-width: 2; }
+.ic-28 { width: 28px; height: 28px; stroke-width: 1.6; }
+.ic-36 { width: 36px; height: 36px; stroke-width: 1.5; }
+
+.versteckt { display: none !important; }
+.nur-vorlesen {
+  position: absolute; width: 1px; height: 1px; overflow: hidden;
+  clip: rect(0 0 0 0); white-space: nowrap;
+}
+.mono { font-family: var(--schrift-mono); letter-spacing: var(--laufweite-mono); }
+.waehlbar { user-select: text; }

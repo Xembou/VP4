@@ -435,8 +435,31 @@ ARGON2_STANDARD = {
 }
 
 
+# Was in einem Dateikopf höchstens stehen darf. Der Kopf ist zwar per AAD
+# mitversiegelt - aber geprüft wird das Siegel erst NACH dem Ableiten. Ohne
+# diese Grenzen rechnet das Programm also zuerst mit dem, was ein
+# Angreifer hineingeschrieben hat: ein einziges gekipptes Bit machte aus
+# 64 MiB Argon2-Speicher 16 GiB, und statt "falsches Passwort" kam ein
+# Speicherfehler (oder der Rechner war minutenlang beschäftigt).
+KDF_GRENZEN = {
+    "zeit": (1, 20),
+    "speicher_kib": (8 * 1024, 1024 * 1024),     # 8 MiB bis 1 GiB
+    "parallel": (1, 16),
+    "runden": (1_000, 10_000_000),
+}
+
+
 class ModernCrypto:
     """Echte Verschlüsselung. Alles hier gilt als sicher."""
+
+    @staticmethod
+    def _kdf_grenzen_pruefen(kdf: dict):
+        """Lehnt Ableitungs-Einstellungen ab, die kein VP4 je schreiben würde."""
+        for feld, (unten, oben) in KDF_GRENZEN.items():
+            if feld in kdf and not unten <= kdf[feld] <= oben:
+                raise ValueError(
+                    "Die Einstellungen im Dateikopf sind unmöglich - die Daten "
+                    "sind beschädigt oder wurden verändert.")
 
     # ----------------------------------------------- Schlüssel aus Passwort
 
@@ -552,6 +575,7 @@ class ModernCrypto:
             zeit, speicher, parallel = struct.unpack("!IIB", werte)
             kdf = {"kdf": art, "zeit": zeit, "speicher_kib": speicher,
                    "parallel": parallel}
+        ModernCrypto._kdf_grenzen_pruefen(kdf)
 
         kopf = roh[:len(marke) + 1 + laenge + 16]
         return kopf, kdf, salt
@@ -976,3 +1000,74 @@ SCHLUESSEL_ARTEN = {
     "wort":     ("Schlüsselwort", False),
     "keiner":   ("Für dieses Verfahren wird kein Schlüssel gebraucht", False),
 }
+
+
+# =============================================================================
+#  Neue Verfahren aus VP4 5.0 (kern/krypto_neu.py)
+# =============================================================================
+#
+# Erst hier unten und vorsichtig geladen: Fehlt PyNaCl oder pyrage, oder ist
+# cryptography zu alt für den Post-Quanten-Hybrid, soll krypto.py trotzdem
+# funktionieren. Das betroffene Verfahren steht dann einfach nicht in der
+# Liste - nachgebaut wird es nie.
+#
+# XChaCha20 und GCM-SIV benutzen dieselbe Schlüsselform wie ChaCha20 und
+# AES (32 Byte als Base64), deshalb die vorhandenen Schlüsselarten.
+
+def _neue_verfahren_eintragen():
+    try:
+        from kern import krypto_neu as neu
+    except ImportError:
+        return
+
+    if neu.xchacha_verfuegbar():
+        VERFAHREN["XChaCha20-Poly1305"] = {
+            "enc": neu.xchacha_verschluesseln, "dec": neu.xchacha_entschluesseln,
+            "art": "sicher", "key": "chacha",
+            "hinweis": "Wie ChaCha20, aber mit 24-Byte-Nonce – zufällige Nonces "
+                       "können sich praktisch nie wiederholen, auch nicht nach "
+                       "Milliarden Nachrichten mit demselben Schlüssel.",
+        }
+    if neu.gcmsiv_verfuegbar():
+        VERFAHREN["AES-256-GCM-SIV"] = {
+            "enc": neu.gcmsiv_verschluesseln, "dec": neu.gcmsiv_entschluesseln,
+            "art": "sicher", "key": "aes",
+            "hinweis": "AES-256 in einer robusteren Bauart: verzeiht ein versehentlich "
+                       "doppelt benutztes Nonce, statt komplett zu versagen. Verraten "
+                       "würde dann nur, ob zweimal derselbe Text verschlüsselt wurde.",
+        }
+    if neu.pq_verfuegbar():
+        VERFAHREN["Post-Quanten (Hybrid)"] = {
+            "enc": neu.pq_verschluesseln, "dec": neu.pq_entschluesseln,
+            "art": "sicher", "key": "pq",
+            "hinweis": "Schützt auch gegen künftige Quantencomputer (ML-KEM-768) und "
+                       "ist mit dem klassischen X25519 kombiniert – heute also "
+                       "mindestens so stark wie X25519 allein. Schlüssel und "
+                       "Geheimtext sind lang (über 1500 Zeichen).",
+        }
+    if neu.age_verfuegbar():
+        VERFAHREN["age (Passwort)"] = {
+            "enc": neu.age_passwort_verschluesseln,
+            "dec": neu.age_passwort_entschluesseln,
+            "art": "sicher", "key": "passwort",
+            "hinweis": "Das offene age-Format: lässt sich auch mit dem offiziellen "
+                       "Programm age öffnen, ganz ohne VP4. Absichtlich langsam "
+                       "(ein, zwei Sekunden), damit Passwort-Raten teuer wird.",
+        }
+        VERFAHREN["age (Schlüsselpaar)"] = {
+            "enc": neu.age_verschluesseln, "dec": neu.age_entschluesseln,
+            "art": "sicher", "key": "age",
+            "hinweis": "age mit Schlüsselpaar (age1… / AGE-SECRET-KEY-1…), dieselben "
+                       "Schlüssel wie bei age-keygen – mit dem offiziellen Programm "
+                       "age austauschbar. Mehrere Empfänger mit Komma trennen.",
+        }
+
+    SCHLUESSEL_ARTEN.setdefault(
+        "pq", ("Zum Verschlüsseln: öffentlicher Schlüssel (VP4PQ1-…) / "
+               "zum Entschlüsseln: privater (VP4PQS1-…)", True))
+    SCHLUESSEL_ARTEN.setdefault(
+        "age", ("Zum Verschlüsseln: öffentlicher Schlüssel (age1…) / "
+                "zum Entschlüsseln: privater (AGE-SECRET-KEY-1…)", True))
+
+
+_neue_verfahren_eintragen()

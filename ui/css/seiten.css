@@ -1,0 +1,190 @@
+/* =====================================================================
+   seiten.css - Einrichtung, Sperre, Einstellungen, Werkzeuge
+   ===================================================================== */
+
+/* --- Einrichtung und Sperrbildschirm: eine Glaskarte über der Tapete ----- */
+.vollbild { position: fixed; inset: 0; z-index: 2; display: grid; place-items: center; padding: 24px; overflow-y: auto; }
+.einrichtung {
+  width: min(520px, 100%);
+  border-radius: var(--r-fenster);
+  padding: 40px 44px 28px;
+  animation: blatt-rein var(--dauer-lang) var(--feder);
+}
+.einrichtung.sperre { width: min(380px, 100%); text-align: center; padding-top: 36px; }
+.einrichtung .logo {
+  position: relative;
+  width: 84px; height: 84px; border-radius: var(--r-eingabe); margin: 0 auto 22px;
+  display: grid; place-items: center;
+  background:
+    radial-gradient(120% 90% at 30% 0%, var(--glanz), transparent 55%),
+    linear-gradient(160deg, color-mix(in srgb, var(--akzent) 62%, var(--weiss)), var(--akzent) 55%, color-mix(in srgb, var(--akzent) 80%, var(--text)));
+  color: var(--weiss);
+  box-shadow: var(--schatten-logo), inset 0 1px 0 var(--glanz), inset 0 -2px 6px color-mix(in srgb, var(--akzent) 50%, transparent);
+}
+.einrichtung .logo::before {
+  content: ""; position: absolute; inset: -28px; z-index: -1; border-radius: 50%;
+  background: radial-gradient(closest-side, color-mix(in srgb, var(--akzent) 30%, transparent), transparent);
+  filter: blur(6px);
+}
+.einrichtung .logo.warnung { background: radial-gradient(120% 90% at 30% 0%, var(--glanz), transparent 55%), linear-gradient(160deg, color-mix(in srgb, var(--orange) 60%, var(--weiss)), var(--orange)); --akzent: var(--orange); }
+.einrichtung .logo .ic { width: 40px; height: 40px; stroke-width: 1.6; filter: drop-shadow(var(--schatten-text)); }
+.einrichtung h1 { font: var(--t-riesig); text-align: center; margin: 0 0 8px; letter-spacing: var(--laufweite-titel); }
+.einrichtung .unter { text-align: center; color: var(--text-2); margin: 0 auto 26px; max-width: 380px; font: var(--t-text); font-size: 15px; line-height: 21px; }
+.einrichtung .schrittzahl { text-align: center; font: var(--t-klein); font-weight: 600; color: var(--akzent-schrift); margin: 0 0 6px; }
+.einrichtung .punkte { display: flex; justify-content: center; gap: 7px; margin-top: 22px; }
+.einrichtung .punkte i { width: 7px; height: 7px; border-radius: var(--r-kapsel); background: var(--text-4); transition: all var(--dauer) var(--feder); }
+.einrichtung .punkte i.an { width: 22px; background: var(--akzent); }
+.einrichtung .punkte i.fertig { background: var(--akzent); opacity: .45; }
+.einrichtung .schritt { animation: schritt-rein var(--dauer-lang) var(--feder); }
+.einrichtung .schritt.zurueck { animation-name: schritt-zurueck; }
+@keyframes schritt-rein { from { opacity: 0; transform: translateX(24px); } }
+@keyframes schritt-zurueck { from { opacity: 0; transform: translateX(-24px); } }
+.einrichtung .knoepfe { display: flex; gap: 10px; margin-top: 24px; }
+.einrichtung .knoepfe .knopf { flex: 1; }
+.einrichtung .fussnote { text-align: center; font: var(--t-klein); color: var(--text-2); margin: 14px 0 0; }
+.einrichtung .fussnote.klein { color: var(--text-3); }
+
+.punktliste {
+  margin: 0 0 6px; padding: 6px; list-style: none; display: grid; gap: 2px;
+  border-radius: var(--r-karte); background: var(--flaeche-hover);
+}
+.punktliste li { display: flex; gap: 14px; align-items: center; padding: 10px 10px; }
+.punktliste .symbol {
+  width: 40px; height: 40px; border-radius: var(--r-feld); display: grid; place-items: center; flex: none;
+  color: var(--weiss); background: var(--farbe, var(--akzent));
+  background-image: linear-gradient(180deg, var(--glanz-zart), transparent);
+  box-shadow: inset 0 1px 0 var(--glanz-zart), var(--schatten-klein);
+}
+.punktliste b { display: block; font: var(--t-kopf); margin-bottom: 1px; }
+.punktliste span { font: var(--t-hinweis); color: var(--text-2); }
+
+.farbwahl { display: flex; gap: 10px; flex-wrap: wrap; }
+.farbwahl button {
+  width: 28px; height: 28px; border-radius: 50%; border: 0; cursor: pointer;
+  background: var(--f); box-shadow: var(--rand-innen);
+  transition: transform var(--dauer-kurz) var(--feder);
+}
+.farbwahl button:hover { transform: scale(1.1); }
+.farbwahl button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--flaeche), 0 0 0 4px var(--f); }
+.ankreuzen { display: flex; gap: 10px; align-items: flex-start; font: var(--t-hinweis); color: var(--text-2); cursor: pointer; margin: 12px 0 0; }
+.ankreuzen input { margin-top: 2px; accent-color: var(--akzent-fuellung); width: 16px; height: 16px; flex: none; }
+.ankreuzen b { color: var(--text); font-weight: 600; }
+.id-gross {
+  font: var(--t-id); letter-spacing: .06em; text-align: center;
+  padding: 22px 12px; border-radius: var(--r-karte); background: var(--flaeche-hover);
+  box-shadow: var(--rand-innen);
+  margin: 0 0 14px; user-select: text;
+}
+.mitte-zeile { display: flex; justify-content: center; margin-bottom: 18px; }
+.knopfreihe { display: flex; gap: 10px; }
+
+/* --- Einstellungen -------------------------------------------------------- */
+.einstellungen { position: absolute; inset: 0; display: grid; grid-template-columns: 220px minmax(0, 1fr); }
+.einstellungen nav { padding: 22px 10px; border-right: 1px solid var(--trenner); overflow-y: auto; }
+.einstellungen nav h1 { font: var(--t-titel); padding: 0 10px; margin: 0 0 14px; }
+.einstellungen nav button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  height: 34px; padding: 0 8px; margin-bottom: 2px;
+  border: 0; border-radius: var(--r-klein); background: transparent; color: var(--text);
+  font: var(--t-text); font-weight: 500; text-align: left; cursor: pointer;
+}
+.einstellungen nav button:hover { background: var(--flaeche-hover); }
+.einstellungen nav button[aria-selected="true"] { background: var(--akzent-fuellung); color: var(--akzent-text); }
+.einstellungen nav .symbol { width: 24px; height: 24px; border-radius: var(--r-mini); display: grid; place-items: center; color: var(--weiss); flex: none; box-shadow: inset 0 1px 0 var(--glanz-zart); }
+.einstellungen nav .symbol .ic { width: 15px; height: 15px; }
+.einstellungen .rechts { overflow-y: auto; padding: 26px 36px 40px; background: var(--grund-rechts); }
+.einstellungen .rechts h2 { font: var(--t-titel); margin: 0 0 18px; }
+.einstellungen .rechts .inhalt-schmal { max-width: 640px; }
+.tapetenwahl { display: grid; grid-template-columns: repeat(5, 1fr); gap: 10px; padding: 12px 16px 14px; }
+.tapetenwahl button {
+  display: block; width: 100%; aspect-ratio: 16 / 10; border-radius: var(--r-kachel); border: 0; cursor: pointer;
+  background: var(--vorschau); box-shadow: var(--rand-innen);
+}
+.tapetenwahl button[aria-checked="true"] { box-shadow: 0 0 0 2px var(--flaeche), 0 0 0 4px var(--akzent); }
+.tapetenwahl small { display: block; text-align: center; font: var(--t-mini); color: var(--text-2); margin-top: 4px; }
+
+/* --- Werkzeuge -------------------------------------------------------------- */
+.werkzeug-raster { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 14px; }
+.werkzeug-karte {
+  display: flex; flex-direction: column; gap: 10px;
+  padding: 18px; border-radius: var(--r-karte);
+  background: var(--flaeche); box-shadow: var(--schatten-karte);
+  cursor: pointer; border: 0; text-align: left; color: var(--text);
+  transition: transform var(--dauer) var(--feder), box-shadow var(--dauer);
+}
+.werkzeug-karte:hover { transform: translateY(-2px); box-shadow: var(--schatten-karte-hoch); }
+.werkzeug-karte .symbol { width: 40px; height: 40px; border-radius: var(--r-kachel); display: grid; place-items: center; color: var(--weiss); box-shadow: inset 0 1px 0 var(--glanz-zart); }
+.werkzeug-karte b { font: var(--t-titel3); }
+.werkzeug-karte span { font: var(--t-hinweis); color: var(--text-2); }
+
+.werkbank { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); gap: 16px; align-items: start; }
+@media (max-width: 1180px) { .werkbank { grid-template-columns: 1fr; } }
+.werkbank .karte h3 { font: var(--t-kopf); margin: 0 0 12px; display: flex; align-items: center; gap: 8px; }
+.verfahrenswahl {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  min-height: 52px; padding: 8px 12px; margin-bottom: 14px;
+  border: 0; border-radius: var(--r-feld); background: var(--feld); color: var(--text);
+  cursor: pointer; text-align: left;
+}
+.verfahrenswahl:hover { background: var(--flaeche-aktiv); }
+.verfahrenswahl .titel { flex: 1; min-width: 0; }
+.verfahrenswahl .titel b { display: block; font: var(--t-kopf); }
+.verfahrenswahl .titel small { display: block; font: var(--t-klein); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.verfahrensliste { width: 360px; max-height: 440px; overflow-y: auto; padding: 6px; border-radius: var(--r-karte); }
+.verfahrensliste .gruppe-name { font: var(--t-mini); font-weight: 600; color: var(--text-2); padding: 10px 10px 4px; display: flex; gap: 6px; align-items: center; }
+.verfahrensliste button {
+  display: flex; align-items: center; gap: 10px; width: 100%;
+  padding: 8px 10px; border: 0; border-radius: var(--r-klein);
+  background: transparent; color: var(--text); text-align: left; cursor: pointer;
+  font: var(--t-text);
+}
+.verfahrensliste button:hover { background: var(--flaeche-aktiv); color: var(--text); }
+.verfahrensliste button[aria-checked="true"] { background: var(--akzent-fuellung); color: var(--akzent-text); }
+.verfahrensliste button[aria-checked="true"] .marke { background: var(--auf-blase-ich); color: var(--akzent-text); }
+.ausgabe {
+  min-height: 140px; padding: 12px; border-radius: var(--r-feld);
+  background: var(--flaeche-hover); font: 13px/19px var(--schrift-mono);
+  white-space: pre-wrap; overflow-wrap: anywhere; user-select: text; color: var(--text);
+}
+.ausgabe.leer-hinweis { font: var(--t-hinweis); color: var(--text-2); display: grid; place-items: center; text-align: center; }
+.ablagezone {
+  display: grid; place-items: center; align-content: center; gap: 10px;
+  min-height: 200px; border-radius: var(--r-karte);
+  border: 2px dashed var(--trenner); color: var(--text-2); text-align: center;
+  transition: border-color var(--dauer-kurz), background var(--dauer-kurz);
+  cursor: pointer;
+}
+.ablagezone:hover, .ablagezone.drueber { border-color: var(--akzent); background: var(--akzent-weich); color: var(--akzent-schrift); }
+.auftrag { display: flex; align-items: center; gap: 12px; padding: 12px 0; }
+.auftrag + .auftrag { border-top: 1px solid var(--trenner); }
+.auftrag .mitte { flex: 1; min-width: 0; }
+.auftrag b { font: var(--t-kopf); display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.auftrag small { font: var(--t-klein); color: var(--text-2); }
+.schluesselzeile { display: flex; align-items: center; gap: 12px; padding: 10px 16px; }
+.schluesselzeile + .schluesselzeile { border-top: 1px solid var(--trenner); }
+.schluesselzeile .mitte { flex: 1; min-width: 0; }
+.schluesselzeile b { font: var(--t-kopf); }
+.schluesselzeile small { display: block; font: var(--t-klein); color: var(--text-3); }
+
+/* --- Community-Einstellungen (Blatt) ------------------------------------- */
+.ce-kopf { display: flex; align-items: center; gap: 16px; margin-bottom: 18px; }
+.ce-kopf .avatar.community.gross { width: 64px; height: 64px; font-size: 30px; box-shadow: var(--schatten-klein), inset 0 1px 0 var(--glanz); }
+.ce-kopf h2 { margin: 0 0 2px; }
+.ce-kopf p { margin: 0; }
+.community-einstellungen .gruppe { background: var(--flaeche); }
+.community-einstellungen .eintrag .feld { flex: 1; }
+.symbolwahl { display: flex; flex-wrap: wrap; gap: 4px; }
+.symbolwahl button {
+  width: 36px; height: 36px; border: 0; border-radius: var(--r-feld); padding: 0;
+  font-size: 19px; background: transparent; cursor: pointer;
+  transition: background var(--dauer-kurz), transform var(--dauer-kurz) var(--feder-federnd);
+}
+.symbolwahl button:hover:not(:disabled) { background: var(--flaeche-hover); transform: scale(1.08); }
+.symbolwahl button[aria-checked="true"] { background: var(--akzent-weich); box-shadow: inset 0 0 0 1.5px var(--akzent); }
+.symbolwahl button:disabled { cursor: default; opacity: .6; }
+.kanal-symbol { width: 28px; height: 28px; border-radius: var(--r-klein); display: grid; place-items: center; flex: none; background: var(--flaeche-hover); color: var(--text-2); }
+.kanal-symbol.akzent { background: var(--akzent-weich); color: var(--akzent-schrift); }
+.einzeilig { display: block; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.leise-text { color: var(--text-2); font-weight: 400; }
+.marke.besitzer { background: var(--orange-weich); color: var(--orange-schrift); }
+.eintrag .titel .einzeilig { font: var(--t-text); font-weight: 500; }

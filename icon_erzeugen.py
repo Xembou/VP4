@@ -13,7 +13,7 @@ Danach liegt vp4.ico im Ordner und wird beim Bauen der .exe verwendet.
 
 Das Icon wird hier gezeichnet statt als Bilddatei mitgeliefert, damit
 es sich jederzeit ändern lässt und keine fremde Grafik im Projekt liegt.
-Gezeichnet wird ein Schloss auf blauem, abgerundetem Grund - in mehreren
+Gezeichnet wird eine Sprechblase mit Schloss auf blauem, abgerundetem Grund - in mehreren
 Größen, damit es sowohl in der Taskleiste als auch in großer Ansicht
 sauber aussieht.
 =====================================================================
@@ -23,16 +23,24 @@ from pathlib import Path
 
 from PIL import Image, ImageDraw
 
-# Dieselbe Akzentfarbe wie in der Oberfläche. Der Verlauf geht von hell
-# oben nach dunkel unten - beide Töne müssen kräftig genug bleiben, damit
-# das weiße Schloss deutlich darauf steht.
-BLAU_OBEN = (59, 130, 246)
-BLAU_UNTEN = (29, 64, 175)
+# Apples Systemblau aus iOS/macOS 26 (#0088FF) - wie der Akzent der
+# Oberfläche. Oben heller, unten etwas tiefer, damit es plastisch wirkt.
+BLAU_OBEN = (74, 176, 255)
+BLAU_UNTEN = (0, 104, 230)
 WEISS = (255, 255, 255)
 
 
+def _verlauf(g, oben, unten):
+    verlauf = Image.new("RGB", (g, g))
+    vd = ImageDraw.Draw(verlauf)
+    for y in range(g):
+        a = y / max(g - 1, 1)
+        vd.line([(0, y), (g, y)], fill=tuple(round(o + (u - o) * a) for o, u in zip(oben, unten)))
+    return verlauf
+
+
 def schloss_zeichnen(kante: int) -> Image.Image:
-    """Zeichnet das Icon in der gewünschten Kantenlänge.
+    """Eine Sprechblase mit Schloss - VP4 ist jetzt zuerst ein Messenger.
 
     Gezeichnet wird viermal so groß und danach verkleinert - dadurch
     werden die Rundungen glatt statt ausgefranst.
@@ -40,49 +48,34 @@ def schloss_zeichnen(kante: int) -> Image.Image:
     f = 4
     g = kante * f
     bild = Image.new("RGBA", (g, g), (0, 0, 0, 0))
-    d = ImageDraw.Draw(bild)
 
-    # Hintergrund: kräftiger Verlauf, danach auf abgerundete Ecken zugeschnitten.
-    # (Erst den Verlauf über die volle Fläche zeichnen und dann maskieren -
-    # ein halbdurchsichtiger Verlauf über einer Füllfarbe wäscht die Farbe aus.)
-    ecke = int(g * 0.22)
-    verlauf = Image.new("RGB", (g, g))
-    vd = ImageDraw.Draw(verlauf)
-    for y in range(g):
-        anteil = y / max(g - 1, 1)
-        vd.line([(0, y), (g, y)],
-                fill=(round(BLAU_OBEN[0] + (BLAU_UNTEN[0] - BLAU_OBEN[0]) * anteil),
-                      round(BLAU_OBEN[1] + (BLAU_UNTEN[1] - BLAU_OBEN[1]) * anteil),
-                      round(BLAU_OBEN[2] + (BLAU_UNTEN[2] - BLAU_OBEN[2]) * anteil)))
+    # Grund: Verlauf auf abgerundetem Quadrat (macOS-Form, ~22 % Radius)
     maske = Image.new("L", (g, g), 0)
-    ImageDraw.Draw(maske).rounded_rectangle([0, 0, g - 1, g - 1], radius=ecke, fill=255)
-    bild.paste(verlauf, (0, 0), maske)
+    ImageDraw.Draw(maske).rounded_rectangle([0, 0, g - 1, g - 1], radius=int(g * 0.225), fill=255)
+    bild.paste(_verlauf(g, BLAU_OBEN, BLAU_UNTEN), (0, 0), maske)
+    # Glanzkante oben, wie bei Liquid Glass
+    glanz = Image.new("L", (g, g), 0)
+    gd = ImageDraw.Draw(glanz)
+    for y in range(int(g * .55)):
+        gd.line([(0, y), (g, y)], fill=round(46 * (1 - y / (g * .55)) ** 2))
+    bild.paste(Image.new("RGB", (g, g), WEISS), (0, 0), Image.composite(glanz, Image.new("L", (g, g), 0), maske))
     d = ImageDraw.Draw(bild)
 
-    # Schlossbügel: ein dicker Bogen oben
-    buegel_breite = int(g * 0.075)
-    bx0, bx1 = int(g * 0.315), int(g * 0.685)
-    by0, by1 = int(g * 0.20), int(g * 0.58)
-    d.arc([bx0, by0, bx1, by1], start=180, end=360,
-          fill=WEISS, width=buegel_breite)
-    # Die beiden Enden des Bügels bis zum Gehäuse verlängern
-    for x in (bx0 + buegel_breite // 2, bx1 - buegel_breite // 2):
-        d.line([(x, int(g * 0.39)), (x, int(g * 0.50))],
-               fill=WEISS, width=buegel_breite)
+    # Sprechblase
+    d.rounded_rectangle([int(g * .17), int(g * .2), int(g * .83), int(g * .7)], radius=int(g * .2), fill=WEISS)
+    d.polygon([(int(g * .27), int(g * .62)), (int(g * .22), int(g * .84)), (int(g * .45), int(g * .68))], fill=WEISS)
 
-    # Gehäuse
-    d.rounded_rectangle([int(g * 0.245), int(g * 0.475),
-                         int(g * 0.755), int(g * 0.815)],
-                        radius=int(g * 0.075), fill=WEISS)
-
-    # Schlüsselloch
-    mitte = g // 2
-    r = int(g * 0.052)
-    d.ellipse([mitte - r, int(g * 0.565) - r, mitte + r, int(g * 0.565) + r],
-              fill=BLAU_UNTEN)
-    d.rounded_rectangle([mitte - int(r * 0.62), int(g * 0.565),
-                         mitte + int(r * 0.62), int(g * 0.725)],
-                        radius=int(r * 0.5), fill=BLAU_UNTEN)
+    # Schloss in der Blase, in der Farbe des Grundes
+    blau = BLAU_UNTEN
+    bw = int(g * .045)
+    d.arc([int(g * .405), int(g * .275), int(g * .595), int(g * .49)], start=180, end=360, fill=blau, width=bw)
+    for x in (int(g * .405) + bw // 2, int(g * .595) - bw // 2):
+        d.line([(x, int(g * .38)), (x, int(g * .44))], fill=blau, width=bw)
+    d.rounded_rectangle([int(g * .36), int(g * .425), int(g * .64), int(g * .615)], radius=int(g * .04), fill=blau)
+    r = int(g * .028)
+    d.ellipse([g // 2 - r, int(g * .505) - r, g // 2 + r, int(g * .505) + r], fill=WEISS)
+    d.rounded_rectangle([g // 2 - int(r * .55), int(g * .505), g // 2 + int(r * .55), int(g * .575)],
+                        radius=int(r * .4), fill=WEISS)
 
     return bild.resize((kante, kante), Image.LANCZOS)
 

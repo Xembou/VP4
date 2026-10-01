@@ -1,0 +1,463 @@
+/* =====================================================================
+   komponenten.css - Knöpfe, Felder, Listen, Blätter, Menüs
+   =====================================================================
+   Wichtig (Lehre aus 4.x): Jedes gefüllte Element setzt seine Textfarbe
+   ausdrücklich. Sonst steht bei einem hellen Akzent grauer Text auf
+   hellem Grund.
+   ===================================================================== */
+
+/* --- Knöpfe ---------------------------------------------------------- */
+.knopf {
+  display: inline-flex; align-items: center; justify-content: center;
+  gap: var(--a2);
+  min-height: var(--knopf-hoehe);
+  padding: 0 var(--a4);
+  border: 0;
+  border-radius: var(--r-kapsel);
+  font: var(--t-kopf);
+  color: var(--text);
+  background: var(--feld);
+  cursor: pointer;
+  white-space: nowrap;
+  transition: transform var(--dauer-kurz) var(--feder),
+              background var(--dauer-kurz) var(--sanft),
+              opacity var(--dauer-kurz);
+}
+.knopf:hover { background: var(--flaeche-aktiv); }
+.knopf:active { transform: var(--druck); }
+.knopf:disabled { opacity: .45; cursor: default; transform: none; }
+.knopf.primaer { background: var(--akzent-fuellung); color: var(--akzent-text); }
+.knopf.primaer:hover { filter: brightness(1.06); }
+.knopf.gefahr { background: var(--rot-fuellung); color: var(--weiss); }
+.knopf.gefahr:hover { filter: brightness(1.06); }
+.knopf.leise { background: transparent; color: var(--akzent-schrift); padding: 0 var(--a2); }
+.knopf.leise:hover { background: var(--akzent-weich); }
+.knopf.leise.gefahr-schrift { color: var(--rot-schrift); }
+.knopf.leise.gefahr-schrift:hover { background: var(--rot-weich); }
+.knopf.gross { min-height: var(--knopf-hoehe-gross); padding: 0 var(--a6); font-size: 15px; }
+.knopf.breit { width: 100%; }
+.knopf .ic-14 { margin-right: -2px; }
+
+/* Runde Symbol-Knöpfe (Werkzeugleiste, Eingabezeile) */
+.rund {
+  display: inline-grid; place-items: center;
+  width: var(--rund); height: var(--rund);
+  border: 0; border-radius: 50%;
+  background: transparent;
+  color: var(--text-2);
+  cursor: pointer;
+  transition: background var(--dauer-kurz), color var(--dauer-kurz),
+              transform var(--dauer-kurz) var(--feder);
+}
+.rund:hover { background: var(--flaeche-hover); color: var(--text); }
+.rund:active { transform: scale(.92); }
+.rund:disabled { opacity: .4; cursor: default; }
+.rund.an { color: var(--akzent); }
+.rund.gefuellt { background: var(--akzent-fuellung); color: var(--akzent-text); }
+.rund.gefuellt:hover { filter: brightness(1.06); background: var(--akzent-fuellung); color: var(--akzent-text); }
+.rund.klein { width: var(--rund-klein); height: var(--rund-klein); }
+
+/* --- Felder ---------------------------------------------------------- */
+.feld {
+  width: 100%;
+  min-height: 40px;
+  padding: 9px var(--a3);
+  border: 1px solid transparent;
+  border-radius: var(--r-feld);
+  background: var(--feld);
+  color: var(--text);
+  font: var(--t-text);
+  user-select: text;
+  transition: box-shadow var(--dauer-kurz), background var(--dauer-kurz);
+}
+.feld::placeholder { color: var(--text-3); }
+.feld:focus, .feld:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 4px var(--akzent-ring);
+  background: var(--flaeche); border-color: var(--akzent);
+}
+textarea.feld { resize: none; line-height: 20px; }
+.feld.mono { font-family: var(--schrift-mono); font-size: 13px; }
+.feld.fehler { border-color: var(--rot); box-shadow: 0 0 0 4px var(--rot-ring); }
+
+.beschriftung { display: block; font: var(--t-klein); color: var(--text-2); margin: 0 0 6px 4px; }
+.fehlertext { display: block; font: var(--t-klein); color: var(--rot-schrift); min-height: 16px; margin: 6px 0 0 4px; }
+.feldgruppe { display: flex; flex-direction: column; gap: var(--a1); margin-bottom: var(--a4); }
+.zeile-felder { display: flex; gap: var(--a2); align-items: center; }
+
+/* Suchfeld als Kapsel */
+.suche {
+  display: flex; align-items: center; gap: var(--a2);
+  height: var(--rund); padding: 0 var(--a3);
+  border-radius: var(--r-kapsel);
+  background: var(--feld);
+  color: var(--text-3);
+  transition: box-shadow var(--dauer-kurz);
+}
+.suche:focus-within { box-shadow: 0 0 0 3px var(--akzent-ring); }
+.suche input {
+  flex: 1; min-width: 0; border: 0; background: transparent; outline: none;
+  font: var(--t-text); color: var(--text); user-select: text;
+}
+.suche input:focus-visible { outline: none; }
+.suche input::placeholder { color: var(--text-3); }
+.suche kbd {
+  font: var(--t-mini); color: var(--text-2);
+  padding: 1px 6px; border-radius: var(--r-mini); background: var(--flaeche-hover);
+}
+
+/* --- Segmentschalter -------------------------------------------------- */
+.segment {
+  position: relative;
+  display: grid; grid-auto-flow: column; grid-auto-columns: 1fr;
+  padding: 3px;
+  border-radius: var(--r-kapsel);
+  background: var(--feld);
+}
+.segment button {
+  position: relative; z-index: 1;
+  height: 28px; border: 0; background: transparent;
+  border-radius: var(--r-kapsel);
+  font: var(--t-klein); font-weight: 600; color: var(--text-2);
+  cursor: pointer;
+  display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+  transition: color var(--dauer-kurz);
+}
+.segment button:hover { color: var(--text); }
+.segment button[aria-selected="true"] { color: var(--text); }
+.segment .pille {
+  position: absolute; z-index: 0; top: 3px; bottom: 3px; left: 3px;
+  border-radius: var(--r-kapsel);
+  background: var(--segment-pille);
+  box-shadow: var(--schatten-klein);
+  transition: transform var(--dauer) var(--feder), width var(--dauer) var(--feder);
+}
+
+/* --- Schalter (iOS) ---------------------------------------------------- */
+.schalter {
+  position: relative; flex: none;
+  width: 40px; height: 24px;
+  border: 0; border-radius: var(--r-kapsel);
+  background: var(--feld);
+  cursor: pointer;
+  transition: background var(--dauer) var(--feder);
+}
+.schalter::after {
+  content: ""; position: absolute; top: 2px; left: 2px;
+  width: 20px; height: 20px; border-radius: 50%;
+  background: var(--schalter-knopf);
+  box-shadow: var(--schatten-knopf);
+  transition: transform var(--dauer) var(--feder);
+}
+.schalter[aria-checked="true"] { background: var(--gruen); }
+.schalter[aria-checked="true"]::after { transform: translateX(16px); }
+
+/* --- Gruppierte Listen (wie in den Systemeinstellungen) ---------------- */
+.gruppe {
+  background: var(--flaeche);
+  border-radius: var(--r-karte);
+  box-shadow: var(--schatten-karte);
+  overflow: hidden;
+  margin-bottom: var(--a5);
+}
+.gruppe-titel { font: var(--t-klein); font-weight: 600; color: var(--text-2); margin: 0 0 6px var(--a4); }
+.gruppe-fuss { font: var(--t-klein); color: var(--text-3); margin: -12px var(--a4) var(--a5); }
+.eintrag {
+  display: flex; align-items: center; gap: var(--a3);
+  min-height: 44px; padding: 8px var(--a4);
+  position: relative;
+}
+.eintrag + .eintrag::before {
+  content: ""; position: absolute; top: 0; left: var(--a4); right: 0;
+  height: 1px; background: var(--trenner); transform: scaleY(.5);
+}
+.eintrag .titel { flex: 1; min-width: 0; }
+.eintrag .titel small { display: block; font: var(--t-klein); color: var(--text-3); }
+.eintrag .wert { color: var(--text-2); font: var(--t-hinweis); }
+.eintrag.klickbar { cursor: pointer; }
+.eintrag.klickbar:hover { background: var(--flaeche-hover); }
+.eintrag > .ic { color: var(--text-2); }
+.eintrag .symbol {
+  display: grid; place-items: center; width: 28px; height: 28px;
+  border-radius: var(--r-mini); color: var(--weiss); flex: none;
+}
+
+/* --- Karten ----------------------------------------------------------- */
+.karte {
+  background: var(--flaeche);
+  border-radius: var(--r-karte);
+  box-shadow: var(--schatten-karte);
+  padding: var(--a5);
+}
+
+/* --- Abzeichen, Marken ----------------------------------------------- */
+.zaehler {
+  display: inline-grid; place-items: center;
+  min-width: 20px; height: 20px; padding: 0 6px;
+  border-radius: var(--r-kapsel);
+  background: var(--akzent-fuellung); color: var(--akzent-text);
+  font: 700 11px/1 var(--schrift);
+  font-variant-numeric: tabular-nums;
+}
+.zaehler.grau { background: var(--grau-fuellung); color: var(--weiss); }
+.marke {
+  display: inline-flex; align-items: center; gap: 4px;
+  height: 20px; padding: 0 8px;
+  border-radius: var(--r-kapsel);
+  font: var(--t-mini);
+  background: var(--flaeche-hover); color: var(--text-2);
+  white-space: nowrap;
+}
+.marke.sicher { background: var(--gruen-weich); color: var(--gruen-schrift); }
+.marke.pq { background: var(--indigo-weich); color: var(--indigo-schrift); }
+.marke.spiel { background: var(--orange-weich); color: var(--orange-schrift); }
+
+/* --- Avatar ------------------------------------------------------------ */
+.avatar {
+  position: relative; flex: none;
+  display: grid; place-items: center;
+  width: 40px; height: 40px; border-radius: 50%;
+  color: var(--weiss); font: 600 15px/1 var(--schrift-titel);
+  background: linear-gradient(180deg, color-mix(in srgb, var(--farbe, var(--grau)) 80%, var(--weiss)), var(--farbe, var(--grau)));
+  text-shadow: var(--schatten-text);
+}
+.avatar.klein { width: 28px; height: 28px; font-size: 11px; }
+.avatar.mittel { width: 34px; height: 34px; font-size: 13px; }
+.avatar.gross { width: 72px; height: 72px; font-size: 26px; }
+.avatar.riesig { width: 88px; height: 88px; font-size: 32px; }
+.avatar img { width: 100%; height: 100%; border-radius: 50%; object-fit: cover; }
+.avatar.community { border-radius: 28%; box-shadow: inset 0 1px 0 var(--glanz-zart); }
+.avatar .punkt {
+  position: absolute; right: -1px; bottom: -1px;
+  width: 12px; height: 12px; border-radius: 50%;
+  background: var(--gruen);
+  box-shadow: 0 0 0 2px var(--punkt-ring, var(--flaeche));
+}
+
+/* --- Blätter (Dialoge) -------------------------------------------------- */
+.abdunkler {
+  position: fixed; inset: 0; z-index: 50;
+  display: grid; place-items: center;
+  background: var(--abdunkeln);
+  animation: einblenden var(--dauer) var(--sanft);
+}
+.blatt {
+  width: min(520px, calc(100vw - 48px));
+  max-height: calc(100vh - 64px);
+  overflow: auto;
+  border-radius: var(--r-blatt);
+  padding: var(--a6);
+  background: var(--glas-fuellung-stark);
+  -webkit-backdrop-filter: var(--glas-blur-stark);
+  backdrop-filter: var(--glas-blur-stark);
+  border: 1px solid var(--glas-rand);
+  box-shadow: inset 0 1px 0 var(--glas-licht), var(--schatten-hoch);
+  animation: blatt-rein var(--dauer-lang) var(--feder);
+}
+:root[data-transparenz="aus"] .blatt { background: var(--glas-solide); backdrop-filter: none; }
+.blatt h2 { font: var(--t-titel); margin: 0 0 var(--a2); letter-spacing: -.01em; }
+.blatt p { margin: 0 0 var(--a4); color: var(--text-2); }
+.blatt .aktionen { display: flex; justify-content: flex-end; gap: var(--a2); margin-top: var(--a5); flex-wrap: wrap; }
+.blatt .kopfsymbol {
+  width: 52px; height: 52px; border-radius: var(--r-zeile);
+  display: grid; place-items: center; margin-bottom: var(--a4);
+  background: var(--akzent-weich); color: var(--akzent);
+}
+.blatt .kopfsymbol.gefahr { background: var(--rot-weich); color: var(--rot); }
+.blatt .kopfsymbol.warnung { background: var(--orange-weich); color: var(--orange); }
+.blatt.weg { animation: blatt-raus var(--dauer) var(--feder) forwards; }
+.abdunkler.weg { animation: ausblenden var(--dauer) var(--sanft) forwards; }
+
+@keyframes einblenden { from { opacity: 0; } }
+@keyframes ausblenden { to { opacity: 0; } }
+@keyframes blatt-rein { from { opacity: 0; transform: translateY(24px) scale(.98); } }
+@keyframes blatt-raus { to { opacity: 0; transform: translateY(12px) scale(.98); } }
+
+/* --- Kontextmenü -------------------------------------------------------- */
+.menue:focus-visible { outline: none; }
+.menue {
+  position: fixed; z-index: 60;
+  min-width: 220px; width: max-content; max-width: 360px; padding: 6px;
+  border-radius: var(--r-menue);
+  animation: menue-rein var(--dauer) var(--feder);
+  transform-origin: var(--ursprung, top left);
+}
+.menue button {
+  display: flex; align-items: center; gap: var(--a3);
+  width: 100%; height: 32px; padding: 0 10px;
+  border: 0; border-radius: var(--r-menue-eintrag);
+  background: transparent; color: var(--text);
+  font: var(--t-text); text-align: left; cursor: pointer;
+}
+.menue button .ic { color: var(--text-2); }
+.menue button:hover, .menue button:focus-visible {
+  background: var(--akzent-fuellung); color: var(--akzent-text);
+}
+.menue button:hover .ic, .menue button:focus-visible .ic { color: var(--akzent-text); }
+.menue button:focus-visible { outline-color: var(--akzent-text); }
+.menue button.gefahr, .menue button.gefahr .ic { color: var(--rot-schrift); }
+.menue button.gefahr:hover, .menue button.gefahr:focus-visible { background: var(--rot-fuellung); color: var(--weiss); }
+.menue button.gefahr:hover .ic, .menue button.gefahr:focus-visible .ic { color: var(--weiss); }
+.menue button .tasten { margin-left: auto; padding-left: var(--a4); font: var(--t-klein); color: var(--text-3); }
+.menue button:hover .tasten, .menue button:focus-visible .tasten { color: var(--akzent-text-weich); }
+.menue hr { border: 0; height: 1px; background: var(--trenner); margin: 5px 8px; }
+/* Die Reaktionsleiste oben im Menü - wie die Tapback-Leiste in Nachrichten */
+.menue .reaktionsleiste {
+  display: flex; gap: 2px; padding: 2px 2px 6px; margin-bottom: 4px;
+  border-bottom: 1px solid var(--trenner);
+}
+.menue .reaktionsleiste button {
+  width: 36px; height: 36px; padding: 0; justify-content: center;
+  font-size: 20px; border-radius: 50%;
+  transition: transform var(--dauer-kurz) var(--feder-federnd), background var(--dauer-kurz);
+}
+.menue .reaktionsleiste button:hover, .menue .reaktionsleiste button:focus-visible {
+  background: var(--flaeche-aktiv); color: inherit; transform: scale(1.15);
+}
+.menue .reaktionsleiste button:focus-visible { outline-color: var(--fokus); }
+.menue .reaktionsleiste button .ic { color: var(--text-2); }
+@keyframes menue-rein { from { opacity: 0; transform: scale(.94); } }
+
+/* --- Hinweise (Toast) ------------------------------------------------- */
+/* Oben in der Mitte (wie Apple): dort liegt die Werkzeugleiste, deren
+   Mitte frei ist - unten würde der Hinweis die neueste Nachricht verdecken. */
+.toasts {
+  position: fixed; top: 18px; left: calc(50% + var(--leiste-breite) / 2); transform: translateX(-50%);
+  z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 8px;
+  pointer-events: none;
+}
+body:has(#app.versteckt) .toasts { left: 50%; }
+.toast {
+  display: flex; align-items: center; gap: var(--a2);
+  max-width: min(560px, calc(100vw - 48px));
+  padding: 10px 16px; border-radius: var(--r-kapsel);
+  font: var(--t-hinweis); font-weight: 500; color: var(--text);
+  pointer-events: auto;
+  animation: toast-rein var(--dauer-lang) var(--feder);
+}
+.toast span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.toast b { font-weight: 650; }
+.toast.klickbar { cursor: pointer; border: 1px solid var(--glas-rand); }
+.toast.klickbar:hover { filter: brightness(1.03); }
+.toast .ic { color: var(--akzent); }
+.toast.fehler .ic { color: var(--rot); }
+.toast.ok .ic { color: var(--gruen); }
+.toast.weg { animation: ausblenden var(--dauer) forwards; }
+@keyframes toast-rein { from { opacity: 0; transform: translateY(-14px) scale(.96); } }
+
+/* --- Banner (in einer Fläche) ------------------------------------------ */
+.banner {
+  display: flex; gap: var(--a3); align-items: flex-start;
+  padding: var(--a3) var(--a4);
+  border-radius: var(--r-feld);
+  font: var(--t-hinweis);
+  background: var(--akzent-weich); color: var(--text);
+}
+.banner .ic { color: var(--akzent); margin-top: 1px; }
+.banner.warnung { background: var(--orange-weich); }
+.banner.warnung .ic { color: var(--orange); }
+.banner.gefahr { background: var(--rot-weich); }
+.banner.gefahr .ic { color: var(--rot); }
+.banner.ok { background: var(--gruen-weich); }
+.banner.ok .ic { color: var(--gruen); }
+.banner b { font-weight: 600; }
+.banner a { color: var(--akzent-schrift); }
+
+/* Fortschritt */
+.fortschritt { height: 6px; border-radius: var(--r-kapsel); background: var(--feld); overflow: hidden; }
+.fortschritt > div { height: 100%; width: 0; background: var(--akzent); border-radius: inherit; transition: width var(--dauer) var(--sanft); }
+
+/* Fortschrittsring (Dateien, Bilder) - der Kreis ist ein SVG aus dom.js */
+.ring { width: 40px; height: 40px; flex: none; transform: rotate(-90deg); }
+.ring circle { fill: none; stroke-width: 3; stroke-linecap: round; }
+.ring .spur { stroke: currentColor; opacity: .22; }
+.ring .wert { stroke: currentColor; transition: stroke-dashoffset var(--dauer) var(--sanft); }
+
+/* Platzhalter beim Laden: ein sanfter Schimmer */
+.schimmer {
+  background-color: var(--feld);
+  background-image: linear-gradient(100deg, transparent 30%, var(--schimmer) 50%, transparent 70%);
+  background-size: 220% 100%;
+  animation: schimmern var(--dauer-schimmer) linear infinite;
+}
+@keyframes schimmern { from { background-position: 120% 0; } to { background-position: -120% 0; } }
+
+/* Passwortstärke */
+.staerke { display: grid; grid-template-columns: repeat(4, 1fr); gap: 4px; margin-top: 8px; }
+.staerke span { height: 4px; border-radius: var(--r-strich); background: var(--feld); transition: background var(--dauer); }
+
+/* Leerer Zustand */
+.leer {
+  display: grid; place-items: center; align-content: center; gap: var(--a3);
+  height: 100%; text-align: center; color: var(--text-2);
+  padding: var(--a8);
+}
+.leer .kreis {
+  width: 72px; height: 72px; border-radius: 50%;
+  display: grid; place-items: center;
+  background: var(--akzent-weich); color: var(--akzent);
+}
+.leer.gross .kreis {
+  width: 96px; height: 96px; margin-bottom: var(--a2);
+  background: radial-gradient(circle at 30% 25%, var(--glanz-zart), transparent 60%), var(--akzent-weich);
+  box-shadow: 0 0 0 10px color-mix(in srgb, var(--akzent) 6%, transparent);
+}
+.leer h3 { font: var(--t-titel3); color: var(--text); margin: 0; }
+.leer.gross h3 { font: var(--t-titel); letter-spacing: -.01em; }
+.leer p { margin: 0; max-width: 340px; }
+.leer .knoepfe { display: flex; gap: var(--a2); justify-content: center; flex-wrap: wrap; margin-top: 6px; }
+.leer .tipp { font: var(--t-klein); color: var(--text-3); margin-top: var(--a3); }
+.leer .tipp kbd {
+  font: var(--t-mini); color: var(--text-2); padding: 1px 6px; margin: 0 2px;
+  border-radius: var(--r-mini); background: var(--flaeche-hover); box-shadow: var(--rand-innen);
+}
+
+kbd { font-family: var(--schrift); }
+
+/* --- Schnellwahl (Strg K) ---------------------------------------------- */
+.abdunkler.oben { place-items: start center; padding-top: 12vh; }
+.blatt.schnellwahl { padding: 0; overflow: hidden; display: flex; flex-direction: column; }
+.schnellwahl .suchzeile {
+  display: flex; align-items: center; gap: var(--a3);
+  padding: 14px 18px; border-bottom: 1px solid var(--trenner);
+  color: var(--text-3);
+}
+.schnellwahl .suchzeile input {
+  flex: 1; min-width: 0; border: 0; outline: none; background: transparent;
+  font: 400 18px/24px var(--schrift); color: var(--text); user-select: text;
+}
+.schnellwahl .suchzeile input::placeholder { color: var(--text-3); }
+.schnellwahl .suchzeile input:focus-visible { outline: none; }
+.schnellwahl .suchzeile kbd {
+  font: var(--t-mini); color: var(--text-2); padding: 2px 7px;
+  border-radius: var(--r-mini); background: var(--flaeche-hover);
+}
+.schnellwahl-liste { overflow-y: auto; max-height: min(420px, 56vh); padding: 6px; }
+.schnellwahl-liste .abschnitt { font: var(--t-mini); font-weight: 600; color: var(--text-3); padding: 10px 12px 4px; }
+.schnellwahl-zeile {
+  display: flex; align-items: center; gap: var(--a3);
+  min-height: 46px; padding: 6px 12px; border-radius: var(--r-feld);
+  cursor: pointer; color: var(--text);
+}
+.schnellwahl-zeile:hover { background: var(--flaeche-hover); }
+.schnellwahl-zeile[aria-selected="true"] { background: var(--akzent-fuellung); color: var(--akzent-text); }
+.schnellwahl-zeile .mitte { flex: 1; min-width: 0; }
+.schnellwahl-zeile b { display: block; font: var(--t-kopf); font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.schnellwahl-zeile b mark { background: none; color: inherit; font-weight: 700; }
+.schnellwahl-zeile small { display: block; font: var(--t-klein); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.schnellwahl-zeile[aria-selected="true"] small, .schnellwahl-zeile[aria-selected="true"] .art { color: var(--akzent-text-weich); }
+.schnellwahl-zeile[aria-selected="true"] .zaehler { background: var(--akzent-text); color: var(--akzent-fuellung); }
+.schnellwahl-zeile .art { font: var(--t-klein); color: var(--text-3); flex: none; }
+.schnellwahl-zeile .kachel {
+  width: 32px; height: 32px; border-radius: var(--r-kachel); flex: none;
+  display: grid; place-items: center; color: var(--weiss);
+  background: var(--farbe, var(--grau));
+}
+.schnellwahl-zeile .kachel.hell { background: var(--flaeche-aktiv); color: var(--text-2); }
+.schnellwahl-zeile[aria-selected="true"] .kachel.hell { background: var(--auf-blase-ich); color: var(--akzent-text); }
+.schnellwahl .leer-zeile { padding: 28px 16px; text-align: center; color: var(--text-2); font: var(--t-hinweis); }
+.schnellwahl .fuss {
+  display: flex; gap: var(--a4); padding: 9px 16px; border-top: 1px solid var(--trenner);
+  font: var(--t-klein); color: var(--text-3);
+}
+.schnellwahl .fuss kbd { font: var(--t-mini); color: var(--text-2); padding: 1px 5px; margin-right: 3px; border-radius: var(--r-mini); background: var(--flaeche-hover); }
