@@ -61,7 +61,9 @@ _HKDF_INFO = b"VP4 db v1"
 _PRUEFWERT = b"VP4 Datenbank - Schluessel stimmt"
 _NONCE = 12
 
-KONTAKT_STATUS = ("anfrage_raus", "anfrage_rein", "ok", "blockiert")
+# "mitglied": jemand aus einer Community, dessen Karte man kennt (um seine
+# Unterschrift zu prüfen), der aber kein eigener Kontakt ist.
+KONTAKT_STATUS = ("anfrage_raus", "anfrage_rein", "ok", "blockiert", "mitglied")
 UNTERHALTUNG_ARTEN = ("dm", "gruppe", "kanal")
 
 # Wie viele Nachrichten eine Seite hat (Bauplan: Seiten zu 50, neueste zuerst).
@@ -81,7 +83,7 @@ CREATE TABLE kontakte(
     verifiziert INTEGER NOT NULL DEFAULT 0 CHECK(verifiziert IN (0, 1)),
     schluessel_neu INTEGER NOT NULL DEFAULT 0 CHECK(schluessel_neu IN (0, 1)),
     status TEXT NOT NULL
-        CHECK(status IN ('anfrage_raus','anfrage_rein','ok','blockiert')),
+        CHECK(status IN ('anfrage_raus','anfrage_rein','ok','blockiert','mitglied')),
     hinzugefuegt INTEGER
 );
 

@@ -68,7 +68,11 @@ _EINLADUNG_ROH = 5 + COMMUNITY_SCHLUESSEL_LAENGE + ID_ZEICHEN      # 47 Byte
 MANIFEST_VERSION = 1
 MANIFEST_SIGNATUR_MARKE = b"VP4 manifest v1\n"
 MANIFEST_FELDER = frozenset({"v", "community_id", "name", "icon", "kanaele",
-                             "admins", "version", "von", "ts"})
+                             "admins", "version", "von", "ts", "art"})
+# Eine "gruppe" ist technisch eine Community mit genau einem Kanal und ohne
+# Kanal-Oberfläche - so muss es nur EINEN Mechanismus geben. Damit der
+# Beitretende weiss, was er vor sich hat, steht die Art im Manifest.
+MANIFEST_ARTEN = ("community", "gruppe")
 KANAL_FELDER = frozenset({"id", "name", "position", "nur_admins"})
 MANIFEST_MAX_BYTES = 32 * 1024
 MAX_KANAELE = 100
@@ -95,6 +99,19 @@ def kanal_id_neu() -> str:
 
 def ist_kanal_id(text) -> bool:
     return ist_crockford(text, KANAL_ZEICHEN)
+
+
+def standard_kanal_id(community_id: str) -> str:
+    """Die ID des ersten Kanals ("allgemein"), aus der Community-ID berechnet.
+
+    Wer mit einem Code beitritt, hat noch kein Manifest - und ohne Kanal-ID
+    keinen Kanalschlüssel. Weil der erste Kanal aus der Community-ID folgt,
+    kann der Neue sofort dort mitlesen und "Hallo" sagen; das Manifest mit
+    allen anderen Kanälen schickt ihm dann irgendein Mitglied.
+    """
+    import hashlib
+    roh = hashlib.sha256(b"VP4 standardkanal v1|" + community_id.encode("ascii")).digest()
+    return crockford_kodieren(roh, KANAL_ZEICHEN)
 
 
 def community_schluessel_neu() -> bytes:
@@ -188,7 +205,8 @@ def _manifest_bytes(felder: dict) -> bytes:
 
 
 def manifest_bauen(identitaet: Identitaet, community_id: str, name: str, icon: str,
-                   kanaele: list, admins: list, version: int, ts: int = None) -> dict:
+                   kanaele: list, admins: list, version: int, ts: int = None,
+                   art: str = "community") -> dict:
     """Ein unterschriebenes Manifest. "von" ist die ID dessen, der unterschreibt."""
     if not ist_community_id(community_id):
         raise ValueError("Ungültige Community-Kennung.")
@@ -204,7 +222,10 @@ def manifest_bauen(identitaet: Identitaet, community_id: str, name: str, icon: s
         "version": version,
         "von": identitaet.id,
         "ts": int(time.time()) if ts is None else int(ts),
+        "art": art,
     }
+    if art not in MANIFEST_ARTEN:
+        raise ValueError("Unbekannte Art der Community.")
     manifest = dict(felder, sig=b64(identitaet.signieren(_manifest_bytes(felder))))
     if len(kanonisch(manifest)) > MANIFEST_MAX_BYTES:
         raise ValueError("Das Manifest wäre zu groß.")
@@ -237,6 +258,10 @@ def manifest_pruefen(manifest, bekannte_karten: dict, besitzer_id: str,
     felder = {k: v for k, v in manifest.items() if k != "sig"}
     if set(felder) != MANIFEST_FELDER or "sig" not in manifest:
         raise ValueError("Das Manifest hat nicht die erwarteten Felder.")
+    if felder["art"] not in MANIFEST_ARTEN:
+        raise ValueError("Unbekannte Art der Community im Manifest.")
+    if felder["art"] == "gruppe" and len(felder["kanaele"]) != 1:
+        raise ValueError("Eine Gruppe hat genau einen Kanal.")
     if not _ganzzahl(felder["v"]) or felder["v"] != MANIFEST_VERSION:
         raise ValueError("Unbekannte Manifest-Version.")
     if not ist_community_id(felder["community_id"]):
