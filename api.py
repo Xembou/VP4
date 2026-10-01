@@ -450,6 +450,53 @@ class VP4Api:
     def community_code_erneuern(self, cid):
         return {"code": self._bote.community_code_erneuern(cid)}
 
+    # ------------------------------------- Verwaltung (Besitzer und Admins)
+    @_antwort
+    @_bote_noetig
+    def kanal_umbenennen(self, cid, kanal_id, name):
+        self._bote.kanal_umbenennen(cid, kanal_id, name)
+
+    @_antwort
+    @_bote_noetig
+    def kanal_loeschen(self, cid, kanal_id):
+        self._bote.kanal_loeschen(cid, kanal_id)
+
+    @_antwort
+    @_bote_noetig
+    def kanal_verschieben(self, cid, kanal_id, position):
+        try:
+            position = int(position)
+        except (TypeError, ValueError):
+            raise ValueError("Die Position muss eine Zahl sein.") from None
+        self._bote.kanal_verschieben(cid, kanal_id, position)
+
+    @_antwort
+    @_bote_noetig
+    def kanal_nur_admins_setzen(self, cid, kanal_id, ja):
+        self._bote.kanal_nur_admins_setzen(cid, kanal_id, bool(ja))
+
+    @_antwort
+    @_bote_noetig
+    def community_umbenennen(self, cid, name, icon=None):
+        self._bote.community_umbenennen(cid, name, icon or None)
+
+    @_antwort
+    @_bote_noetig
+    def admin_setzen(self, cid, nutzer_id, ja):
+        self._bote.admin_setzen(cid, nutzer_id, bool(ja))
+
+    @_antwort
+    @_bote_noetig
+    def mitglied_entfernen(self, cid, nutzer_id):
+        return {"code": self._bote.mitglied_entfernen(cid, nutzer_id)}
+
+    @_antwort
+    @_bote_noetig
+    def community_mitglieder(self, cid):
+        if not self._dienst.db.community_holen(cid):
+            raise ValueError("Diese Community gibt es nicht.")
+        return {"liste": self._bote.mitglieder(cid)}
+
     # ------------------------------------------------------------ Dateien
     @_antwort
     @_bote_noetig

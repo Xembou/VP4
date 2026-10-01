@@ -310,6 +310,7 @@ def pruefen(R, hilfen):
         for b in netz.boten.values():
             b.db.close()
     pruefen_review(R, hilfen)
+    pruefen_verwaltung(R, hilfen)
 
 
 def pruefen_review(R, hilfen):
@@ -442,5 +443,298 @@ def pruefen_review(R, hilfen):
         netz.boten["Anna"] = anna_offline
         R.pruefe("Ein Neuer bekommt auch ein Manifest, das ein Admin geändert hat",
                  {k["name"] for c in carl.communities() if c["id"] == cid for k in c["kanaele"]} == {"allgemein", "clips"})
+        for b in netz.boten.values():
+            b.db.close()
+
+
+def _verbinden(a, b, netz):
+    a.kontakt_hinzufuegen(b.meine_id)
+    netz.zustellen()
+    b.anfrage_beantworten(a.meine_id, True)
+    netz.zustellen()
+
+
+def _eine_minute_spaeter(netz):
+    """Auf einen Beitritt antwortet jeder höchstens einmal pro Minute - im
+    Test vergeht die Minute, indem die Merkzettel geleert werden."""
+    for b in netz.boten.values():
+        b._manifest_antwort.clear()
+        b._beitritt_gesehen.clear()
+
+
+def _kanaele(bote, cid):
+    return [(k["name"], k["nur_admins"]) for c in bote.communities() if c["id"] == cid for k in c["kanaele"]]
+
+
+def _community(bote, cid):
+    return next(c for c in bote.communities() if c["id"] == cid)
+
+
+def pruefen_verwaltung(R, hilfen):
+    """Community-Verwaltung: Kanäle umbenennen, löschen, verschieben,
+    Ankündigungskanal, Admins, Name und Symbol, Mitglied entfernen."""
+    from kern import e2e
+    from kern.communities import manifest_bauen, standard_kanal_id
+    from api import VP4Api
+    wirft = hilfen["wirft_valueerror"]
+    with tempfile.TemporaryDirectory() as ordner:
+        netz = SpielNetz()
+        anna = person(netz, "Anna", ordner)
+        ben = person(netz, "Ben", ordner)
+        carl = person(netz, "Carl", ordner)
+        mallory = person(netz, "Mallory", ordner)
+        _verbinden(anna, ben, netz)
+        _verbinden(anna, carl, netz)
+        cid = anna.community_erstellen("Schulhof", "🏫")
+        std = standard_kanal_id(cid)
+        ben.community_beitreten(anna.einladung(cid))
+        netz.zustellen()
+        _eine_minute_spaeter(netz)
+        carl.community_beitreten(anna.einladung(cid))
+        netz.zustellen()
+        ben.text_senden(std, "Hi von Ben")
+        carl.text_senden(std, "Hi von Carl")
+        netz.zustellen()
+
+        R.pruefe("Rolle: wer gründet, ist 'besitzer'", _community(anna, cid)["rolle"] == "besitzer")
+        R.pruefe("Rolle: wer beitritt, ist 'mitglied'", _community(ben, cid)["rolle"] == "mitglied")
+
+        # --- Kanalnamen -------------------------------------------------------
+        hid = anna.kanal_anlegen(cid, "  Haus Aufgaben ")
+        netz.zustellen()
+        R.pruefe("Kanalnamen werden klein und mit Bindestrich gespeichert",
+                 ("haus-aufgaben", False) in _kanaele(ben, cid))
+        R.pruefe("Kanalname: zu lang (33 Zeichen) wird abgelehnt", wirft(anna.kanal_anlegen, cid, "a" * 33))
+        R.pruefe("Kanalname: 32 Zeichen sind erlaubt", bool(anna.kanal_anlegen(cid, "b" * 32)))
+        R.pruefe("Kanalname: Sonderzeichen werden abgelehnt", wirft(anna.kanal_anlegen, cid, "hallo!"))
+        R.pruefe("Kanalname: leer wird abgelehnt", wirft(anna.kanal_anlegen, cid, "   "))
+        R.pruefe("Kanalname: Umlaute und ß sind erlaubt", bool(anna.kanal_anlegen(cid, "größe-übung")))
+        R.pruefe("Kanalname: doppelt (auch in anderer Schreibweise) wird abgelehnt",
+                 wirft(anna.kanal_anlegen, cid, "HAUS-aufgaben"))
+
+        anna.kanal_umbenennen(cid, hid, "hausaufgaben")
+        netz.zustellen()
+        R.pruefe("Kanal umbenennen kommt bei den Mitgliedern an",
+                 ben.db.kanal_holen(hid)["name"] == "hausaufgaben"
+                 and ben.db.unterhaltung_holen(hid)["titel"] == "hausaufgaben")
+        R.pruefe("Umbenennen auf einen vorhandenen Namen wird abgelehnt",
+                 wirft(anna.kanal_umbenennen, cid, hid, "allgemein"))
+        R.pruefe("Umbenennen auf ungültigen Namen wird abgelehnt",
+                 wirft(anna.kanal_umbenennen, cid, hid, "haus aufgaben?"))
+        R.pruefe("Umbenennen eines unbekannten Kanals wird abgelehnt",
+                 wirft(anna.kanal_umbenennen, cid, "ZZZZZZZZ", "neu"))
+
+        # --- Was ein einfaches Mitglied NICHT darf ------------------------------
+        R.pruefe("Mitglied darf keinen Kanal umbenennen", wirft(ben.kanal_umbenennen, cid, hid, "meins"))
+        R.pruefe("Mitglied darf keinen Kanal löschen", wirft(ben.kanal_loeschen, cid, hid))
+        R.pruefe("Mitglied darf keinen Kanal verschieben", wirft(ben.kanal_verschieben, cid, hid, 0))
+        R.pruefe("Mitglied darf keinen Ankündigungskanal einrichten",
+                 wirft(ben.kanal_nur_admins_setzen, cid, hid, True))
+        R.pruefe("Mitglied darf die Community nicht umbenennen", wirft(ben.community_umbenennen, cid, "Meins", "💀"))
+        R.pruefe("Mitglied darf keine Admins ernennen", wirft(ben.admin_setzen, cid, ben.meine_id, True))
+        R.pruefe("Mitglied darf niemanden entfernen", wirft(ben.mitglied_entfernen, cid, carl.meine_id))
+
+        # --- Admins -------------------------------------------------------------
+        R.pruefe("Admin: Unbekannte (weder Mitglied noch Kontakt) werden abgelehnt",
+                 wirft(anna.admin_setzen, cid, mallory.meine_id, True))
+        R.pruefe("Admin: sich selbst als Besitzer setzen wird abgelehnt",
+                 wirft(anna.admin_setzen, cid, anna.meine_id, True))
+        R.pruefe("Admin: keine gültige ID wird abgelehnt", wirft(anna.admin_setzen, cid, "Quatsch", True))
+        anna.admin_setzen(cid, ben.meine_id, True)
+        netz.zustellen()
+        R.pruefe("Rolle: ernannter Admin sieht 'admin'", _community(ben, cid)["rolle"] == "admin"
+                 and _community(ben, cid)["admin"] and not _community(ben, cid)["besitzer"])
+        m = {x["id"]: x for x in carl.mitglieder(cid)}
+        R.pruefe("Mitgliederliste zeigt Admin und Besitzer",
+                 m[ben.meine_id]["admin"] and not m[ben.meine_id]["besitzer"]
+                 and not m[carl.meine_id]["admin"] and m[carl.meine_id]["ich"])
+        R.pruefe("Admin darf keine weiteren Admins ernennen", wirft(ben.admin_setzen, cid, carl.meine_id, True))
+        R.pruefe("Admin darf niemanden entfernen", wirft(ben.mitglied_entfernen, cid, carl.meine_id))
+
+        # Admin bearbeitet Kanäle, Name und Symbol
+        sid = ben.kanal_anlegen(cid, "spiele")
+        netz.zustellen()
+        ben.kanal_verschieben(cid, sid, 0)
+        netz.zustellen()
+        R.pruefe("Admin verschiebt einen Kanal nach vorn - alle sehen die neue Reihenfolge",
+                 _kanaele(carl, cid)[0] == ("spiele", False) and _kanaele(anna, cid) == _kanaele(carl, cid))
+        ben.kanal_verschieben(cid, sid, 999)
+        netz.zustellen()
+        R.pruefe("Verschieben über das Ende hinaus landet am Ende", _kanaele(carl, cid)[-1] == ("spiele", False))
+        R.pruefe("Verschieben mit einer Nicht-Zahl wird abgelehnt", wirft(ben.kanal_verschieben, cid, sid, "2"))
+        ben.kanal_nur_admins_setzen(cid, hid, True)
+        netz.zustellen()
+        R.pruefe("Admin macht einen Ankündigungskanal - kommt bei allen an",
+                 ("hausaufgaben", True) in _kanaele(carl, cid))
+        R.pruefe("Im Ankündigungskanal darf ein Mitglied danach nicht mehr schreiben",
+                 wirft(carl.text_senden, hid, "Darf ich?"))
+        ben.kanal_nur_admins_setzen(cid, hid, False)
+        netz.zustellen()
+        R.pruefe("Ankündigungskanal lässt sich wieder öffnen", ("hausaufgaben", False) in _kanaele(carl, cid))
+        ben.kanal_nur_admins_setzen(cid, hid, True)
+        netz.zustellen()
+
+        R.pruefe("Der Standardkanal lässt sich nicht löschen", wirft(anna.kanal_loeschen, cid, std))
+        R.pruefe("Der Standardkanal wird nie zum Ankündigungskanal",
+                 wirft(anna.kanal_nur_admins_setzen, cid, std, True))
+        ben.community_umbenennen(cid, "Schulhof 2.0", "🎒")
+        netz.zustellen()
+        c = _community(carl, cid)
+        R.pruefe("Admin benennt die Community um - Name und Symbol kommen an",
+                 c["name"] == "Schulhof 2.0" and c["icon"] == "🎒")
+        anna.community_umbenennen(cid, "Schulhof 3", None)
+        netz.zustellen()
+        c = _community(carl, cid)
+        R.pruefe("Umbenennen ohne Symbol behält das alte Symbol", c["name"] == "Schulhof 3" and c["icon"] == "🎒")
+        R.pruefe("Leerer Community-Name wird abgelehnt", wirft(anna.community_umbenennen, cid, "  ", "🎒"))
+
+        ben.kanal_loeschen(cid, sid)
+        netz.zustellen()
+        R.pruefe("Kanal löschen: Kanal und Verlauf verschwinden bei allen",
+                 carl.db.kanal_holen(sid) is None and carl.db.unterhaltung_holen(sid) is None
+                 and "spiele" not in [n for n, _ in _kanaele(anna, cid)])
+        R.pruefe("Kanal löschen: Positionen bleiben lückenlos",
+                 [k["position"] for k in anna._manifest(cid)["kanaele"]]
+                 == list(range(len(anna._manifest(cid)["kanaele"]))))
+        R.pruefe("Einen schon gelöschten Kanal löschen wird abgelehnt", wirft(ben.kanal_loeschen, cid, sid))
+
+        # --- Fälschungen ----------------------------------------------------------
+        alt_m = ben._manifest(cid)
+        boese = manifest_bauen(ben.ich, cid, alt_m["name"], alt_m["icon"], alt_m["kanaele"],
+                               [ben.meine_id, carl.meine_id], alt_m["version"] + 1)
+        ben._steuer_senden(std, {"art": "manifest", "manifest": boese, "karte_von": ben.karte()})
+        netz.zustellen()
+        R.pruefe("Fälschung: Admin ernennt per selbst gebautem Manifest einen Admin - abgelehnt",
+                 carl.meine_id not in anna._manifest(cid)["admins"] and _community(carl, cid)["rolle"] == "mitglied")
+        ohne_std = [k for k in alt_m["kanaele"] if k["id"] != std]
+        boese = manifest_bauen(ben.ich, cid, alt_m["name"], alt_m["icon"], ohne_std,
+                               alt_m["admins"], alt_m["version"] + 1)
+        ben._steuer_senden(std, {"art": "manifest", "manifest": boese, "karte_von": ben.karte()})
+        netz.zustellen()
+        R.pruefe("Fälschung: Admin entfernt per Manifest den Standardkanal - abgelehnt",
+                 carl.db.kanal_holen(std) is not None and anna._manifest(cid)["version"] == alt_m["version"])
+        gesperrt = [dict(k, nur_admins=True) if k["id"] == std else k for k in alt_m["kanaele"]]
+        boese = manifest_bauen(ben.ich, cid, alt_m["name"], alt_m["icon"], gesperrt,
+                               alt_m["admins"], alt_m["version"] + 1)
+        ben._steuer_senden(std, {"art": "manifest", "manifest": boese, "karte_von": ben.karte()})
+        netz.zustellen()
+        R.pruefe("Fälschung: Admin sperrt per Manifest den Standardkanal - abgelehnt",
+                 not carl.db.kanal_holen(std)["nur_admins"])
+        boese = manifest_bauen(carl.ich, cid, "Gekapert", "💀", alt_m["kanaele"],
+                               alt_m["admins"], alt_m["version"] + 1)
+        carl._steuer_senden(std, {"art": "manifest", "manifest": boese, "karte_von": carl.karte()})
+        netz.zustellen()
+        R.pruefe("Fälschung: Mitglied benennt per Manifest um - abgelehnt",
+                 _community(anna, cid)["name"] == "Schulhof 3" and _community(ben, cid)["name"] == "Schulhof 3")
+        ckey = ben.tresor.community_schluessel(cid)
+        verboten = um.kanal_bauen(carl.ich, e2e.kanal_schluessel(ckey, hid), carl.meine_id, cid,
+                                  {"art": "text", "text": "Hack", "kanal": hid, "karte": carl.karte()})
+        anna.empfangen(verboten.packen())
+        R.pruefe("Neuer Ankündigungskanal: Nachricht eines Mitglieds wird beim Empfang verworfen",
+                 "Hack" not in letzte_texte(anna, hid, 10))
+
+        # --- Gruppen haben genau einen Kanal ------------------------------------------
+        gid = anna.community_erstellen("Clique", "💬", gruppe=True)
+        R.pruefe("In einer Gruppe lassen sich keine Kanäle anlegen", wirft(anna.kanal_anlegen, gid, "zweiter"))
+        anna.community_umbenennen(gid, "Clique neu")
+        R.pruefe("Eine Gruppe lässt sich umbenennen (Titel folgt)",
+                 anna.db.unterhaltung_holen(standard_kanal_id(gid))["titel"] == "Clique neu")
+
+        # --- Ein Neuer bekommt den aktuellen Stand -----------------------------------
+        dora = person(netz, "Dora", ordner)
+        _eine_minute_spaeter(netz)
+        dora.community_beitreten(anna.einladung(cid))
+        netz.zustellen()
+        R.pruefe("Neue sieht Name, Symbol, Reihenfolge und Ankündigungskanal wie der Besitzer",
+                 _kanaele(dora, cid) == _kanaele(anna, cid)
+                 and _community(dora, cid)["name"] == "Schulhof 3" and _community(dora, cid)["icon"] == "🎒")
+        R.pruefe("Neue kennt die Admins (Ben) und ist selbst 'mitglied'",
+                 dora._ist_admin(cid, ben.meine_id) and _community(dora, cid)["rolle"] == "mitglied")
+        dora.text_senden(std, "Hallo, ich bin Dora")
+        netz.zustellen()
+
+        # --- Mitglied entfernen ---------------------------------------------------------
+        R.pruefe("Entfernen: sich selbst geht nicht", wirft(anna.mitglied_entfernen, cid, anna.meine_id))
+        R.pruefe("Entfernen: Unbekannte gehen nicht", wirft(anna.mitglied_entfernen, cid, mallory.meine_id))
+        alter_code = anna.einladung(cid)
+        mitgeschnitten = []
+        alt_ausgang = anna.ausgang
+        anna.ausgang = lambda a: (mitgeschnitten.append(a), alt_ausgang(a))
+        neuer_code = anna.mitglied_entfernen(cid, ben.meine_id)
+        netz.zustellen()
+        anna.ausgang = alt_ausgang
+        R.pruefe("Entfernen gibt einen neuen Einladungscode zurück",
+                 neuer_code != alter_code and neuer_code == anna.einladung(cid))
+        R.pruefe("Entfernen: der Entfernte bekommt den neuen Schlüssel nicht (auch nicht als Kontakt)",
+                 not any(a.an == ben.meine_id for a in mitgeschnitten)
+                 and ben.tresor.community_schluessel(cid) != anna.tresor.community_schluessel(cid))
+        R.pruefe("Entfernen: andere Kontakte bekommen den neuen Schlüssel automatisch",
+                 carl.tresor.community_schluessel(cid) == anna.tresor.community_schluessel(cid))
+        R.pruefe("Entfernen: Mitglieder, die keine Kontakte sind, brauchen den neuen Code",
+                 dora.tresor.community_schluessel(cid) != anna.tresor.community_schluessel(cid))
+        R.pruefe("Entfernen: ein Admin verliert dabei sein Amt",
+                 ben.meine_id not in anna._manifest(cid)["admins"] and not carl._ist_admin(cid, ben.meine_id))
+        R.pruefe("Entfernen: beim Besitzer steht 'Ben wurde entfernt.'",
+                 any(x["art"] == "system" and x["text"] == "Ben wurde entfernt."
+                     for x in anna.nachrichten(std)[0]))
+        R.pruefe("Entfernen: der Entfernte fehlt in der Mitgliederliste",
+                 ben.meine_id not in {x["id"] for x in anna.mitglieder(cid)}
+                 and carl.meine_id in {x["id"] for x in anna.mitglieder(cid)})
+        anna.text_senden(std, "Nach dem Rauswurf")
+        netz.zustellen()
+        R.pruefe("Mitgliederliste: der Besitzer steht als Besitzer und Admin darin",
+                 [(x["besitzer"], x["admin"], x["ich"]) for x in anna.mitglieder(cid) if x["id"] == anna.meine_id]
+                 == [(True, True, True)]
+                 and [(x["besitzer"], x["admin"]) for x in carl.mitglieder(cid) if x["id"] == anna.meine_id]
+                 == [(True, True)])
+        R.pruefe("Entfernen: der Entfernte liest Neues nicht mehr, die anderen schon",
+                 "Nach dem Rauswurf" not in letzte_texte(ben, std, 20)
+                 and letzte_texte(carl, std, 1) == ["Nach dem Rauswurf"])
+        R.pruefe("Entfernen: Nicht-Besitzer (Carl) dürfen das nicht", wirft(carl.mitglied_entfernen, cid, dora.meine_id))
+
+        mitgeschnitten.clear()
+        anna.ausgang = lambda a: (mitgeschnitten.append(a), alt_ausgang(a))
+        anna.community_code_erneuern(cid)
+        netz.zustellen()
+        anna.ausgang = alt_ausgang
+        R.pruefe("Ein späterer neuer Code holt den Entfernten nicht zurück",
+                 not any(a.an == ben.meine_id for a in mitgeschnitten)
+                 and ben.tresor.community_schluessel(cid) != anna.tresor.community_schluessel(cid)
+                 and carl.tresor.community_schluessel(cid) == anna.tresor.community_schluessel(cid))
+
+        # Nach dem Rauswurf kommt jemand Neues dazu und sieht den aktuellen Stand
+        emil = person(netz, "Emil", ordner)
+        _eine_minute_spaeter(netz)
+        emil.community_beitreten(anna.einladung(cid))
+        netz.zustellen()
+        R.pruefe("Neuer nach dem Rauswurf: aktueller Stand, Ben ist kein Admin mehr",
+                 _kanaele(emil, cid) == _kanaele(anna, cid) and not emil._ist_admin(cid, ben.meine_id)
+                 and _community(emil, cid)["name"] == "Schulhof 3")
+
+        # --- Die API reicht nur durch ------------------------------------------------
+        class _Dienst:
+            pass
+        d = _Dienst()
+        d.bote, d.db, d.letzte_aktivitaet = anna, anna.db, 0
+        api = VP4Api(d)
+        liste = api.community_mitglieder(cid)
+        R.pruefe("API: community_mitglieder liefert die Liste mit Rollen",
+                 liste["ok"] and all({"admin", "besitzer"} <= set(x) for x in liste["liste"])
+                 and carl.meine_id in {x["id"] for x in liste["liste"]})
+        r = api.kanal_loeschen(cid, std)
+        R.pruefe("API: Fehler kommen als ok=False mit Text zurück", r["ok"] is False and r["fehler"])
+        kid = api.kanal_anlegen(cid, "neu", False)["id"]
+        R.pruefe("API: Kanal umbenennen, verschieben, sperren, löschen",
+                 api.kanal_umbenennen(cid, kid, "neuer")["ok"] and api.kanal_verschieben(cid, kid, "0")["ok"]
+                 and api.kanal_nur_admins_setzen(cid, kid, 1)["ok"] and api.kanal_loeschen(cid, kid)["ok"])
+        R.pruefe("API: community_umbenennen und admin_setzen",
+                 api.community_umbenennen(cid, "Schulhof 4", "")["ok"]
+                 and api.admin_setzen(cid, carl.meine_id, True)["ok"]
+                 and api.admin_setzen(cid, carl.meine_id, False)["ok"])
+        r = api.mitglied_entfernen(cid, dora.meine_id)
+        R.pruefe("API: mitglied_entfernen liefert den neuen Code", r["ok"] and r["code"].startswith("VP4G2-"))
+        R.pruefe("API: community_mitglieder für Unbekanntes wird abgelehnt",
+                 api.community_mitglieder("G-ZZZZZZZZ")["ok"] is False)
+        netz.zustellen()
         for b in netz.boten.values():
             b.db.close()

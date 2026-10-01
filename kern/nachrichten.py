@@ -42,6 +42,7 @@ import json
 import logging
 import mimetypes
 import os
+import re
 import secrets
 import shutil
 import threading
@@ -77,6 +78,27 @@ SYSTEM = "system"
 MAX_COMMUNITY_NACHRICHT = 256 * 1024
 MAX_WARTEND_BYTES = 4 * 1024 * 1024
 WARTEND_ABLAUF_S = 15 * 60
+# Kanalnamen wie bei Discord: klein, ohne Leerzeichen, höchstens 32 Zeichen.
+KANALNAME_MAX = 32
+_KANALNAME = re.compile(r"[a-z0-9äöüß-]{1,%d}" % KANALNAME_MAX)
+
+
+def kanalname_saeubern(name) -> str:
+    """Macht aus "Haus Aufgaben " den Kanalnamen "haus-aufgaben" - oder lehnt ab.
+
+    Erlaubt sind a-z, 0-9, äöüß und der Bindestrich, 1 bis 32 Zeichen.
+    Leerzeichen werden zu Bindestrichen, Grossbuchstaben zu kleinen.
+    """
+    if not isinstance(name, str):
+        raise ValueError("Der Kanalname muss ein Text sein.")
+    sauber = "-".join(name.strip().lower().split())
+    if not sauber:
+        raise ValueError("Der Kanalname darf nicht leer sein.")
+    if len(sauber) > KANALNAME_MAX:
+        raise ValueError(f"Der Kanalname ist zu lang (höchstens {KANALNAME_MAX} Zeichen).")
+    if not _KANALNAME.fullmatch(sauber):
+        raise ValueError("Kanalnamen bestehen nur aus a-z, 0-9, ä, ö, ü, ß und Bindestrichen.")
+    return sauber
 
 
 def _dateiname_saeubern(name: str) -> str:
@@ -969,6 +991,12 @@ class Bote:
         self.ereignis("unterhaltungen_geaendert")
 
     def _manifest_aendern(self, cid, aendern):
+        # Unter dem Empfangs-Schloss: Kommt gleichzeitig ein Manifest herein,
+        # bauten sonst beide auf derselben alten Version auf.
+        with self._lock:
+            self._manifest_aendern_gesperrt(cid, aendern)
+
+    def _manifest_aendern_gesperrt(self, cid, aendern):
         if not self._ist_admin(cid, self.meine_id):
             raise ValueError("Das dürfen nur Besitzer und Admins.")
         alt = self._manifest(cid)
@@ -982,14 +1010,119 @@ class Bote:
         self._manifest_verschicken(cid, neu)
 
     def kanal_anlegen(self, cid, name, nur_admins=False) -> str:
+        name = kanalname_saeubern(name)
         kid = kanal_id_neu()
         def aendern(kanaele, admins, cname, icon):
-            if any(k["name"] == name for k in kanaele):
-                raise ValueError("Einen Kanal mit diesem Namen gibt es schon.")
+            self._keine_gruppe(cid)
+            self._name_frei(kanaele, name)
             kanaele.append({"id": kid, "name": name, "position": len(kanaele), "nur_admins": bool(nur_admins)})
             return kanaele, admins, cname, icon
         self._manifest_aendern(cid, aendern)
         return kid
+
+    # ------------------------------------------------ Verwaltung (Besitzer/Admins)
+    def _keine_gruppe(self, cid):
+        if (self._manifest(cid) or {}).get("art") == "gruppe":
+            raise ValueError("Eine Gruppe hat genau einen Kanal.")
+
+    @staticmethod
+    def _name_frei(kanaele, name, ausser=None):
+        if any(k["name"].lower() == name and k["id"] != ausser for k in kanaele):
+            raise ValueError("Einen Kanal mit diesem Namen gibt es schon.")
+
+    @staticmethod
+    def _kanal_finden(kanaele, kanal_id) -> dict:
+        for k in kanaele:
+            if k["id"] == kanal_id:
+                return k
+        raise ValueError("Diesen Kanal gibt es nicht (mehr).")
+
+    @staticmethod
+    def _neu_nummerieren(kanaele) -> list:
+        kanaele = sorted(kanaele, key=lambda k: (k["position"], k["name"], k["id"]))
+        for i, k in enumerate(kanaele):
+            k["position"] = i
+        return kanaele
+
+    def kanal_umbenennen(self, cid, kanal_id, name):
+        """Besitzer oder Admin. Name nach den Kanalregeln, keine Doppelten."""
+        name = kanalname_saeubern(name)
+        def aendern(kanaele, admins, cname, icon):
+            self._name_frei(kanaele, name, ausser=kanal_id)
+            self._kanal_finden(kanaele, kanal_id)["name"] = name
+            return kanaele, admins, cname, icon
+        self._manifest_aendern(cid, aendern)
+
+    def kanal_loeschen(self, cid, kanal_id):
+        """Besitzer oder Admin. Der Standardkanal bleibt immer: Über ihn meldet
+        sich ein Neuer, und er kennt anfangs keinen anderen."""
+        if kanal_id == standard_kanal_id(cid):
+            raise ValueError("Der erste Kanal einer Community lässt sich nicht löschen.")
+        def aendern(kanaele, admins, cname, icon):
+            self._kanal_finden(kanaele, kanal_id)
+            return self._neu_nummerieren([k for k in kanaele if k["id"] != kanal_id]), admins, cname, icon
+        self._manifest_aendern(cid, aendern)
+
+    def kanal_verschieben(self, cid, kanal_id, position):
+        """Besitzer oder Admin. `position` zählt ab 0 und wird auf die Liste begrenzt."""
+        if not isinstance(position, int) or isinstance(position, bool):
+            raise ValueError("Die Position muss eine Zahl sein.")
+        def aendern(kanaele, admins, cname, icon):
+            kanaele = self._neu_nummerieren(kanaele)
+            k = self._kanal_finden(kanaele, kanal_id)
+            kanaele.remove(k)
+            kanaele.insert(max(0, min(position, len(kanaele))), k)
+            for i, x in enumerate(kanaele):
+                x["position"] = i
+            return kanaele, admins, cname, icon
+        self._manifest_aendern(cid, aendern)
+
+    def kanal_nur_admins_setzen(self, cid, kanal_id, ja: bool):
+        """Ankündigungskanal an/aus. Nie für den Standardkanal - dort meldet
+        sich ein Neuer, und dort muss jeder "Hallo" sagen können."""
+        if ja and kanal_id == standard_kanal_id(cid):
+            raise ValueError("Im ersten Kanal müssen alle schreiben dürfen.")
+        def aendern(kanaele, admins, cname, icon):
+            self._kanal_finden(kanaele, kanal_id)["nur_admins"] = bool(ja)
+            return kanaele, admins, cname, icon
+        self._manifest_aendern(cid, aendern)
+
+    def community_umbenennen(self, cid, name, icon=None):
+        """Besitzer oder Admin. Ohne `icon` (oder leer) bleibt das alte Symbol."""
+        if not isinstance(name, str) or not name.strip():
+            raise ValueError("Der Name darf nicht leer sein.")
+        def aendern(kanaele, admins, cname, alt_icon):
+            return kanaele, admins, name.strip(), (icon or alt_icon)
+        self._manifest_aendern(cid, aendern)
+
+    def admin_setzen(self, cid, nutzer_id, ja: bool):
+        """Nur der Besitzer ernennt und entlässt Admins. Ernannt werden kann
+        nur, wen man in der Community gesehen hat oder als Kontakt kennt."""
+        c = self.db.community_holen(cid)
+        if not c or c["besitzer_id"] != self.meine_id:
+            raise ValueError("Nur der Besitzer kann Admins ernennen.")
+        nutzer_id = id_normalisieren(nutzer_id)
+        if nutzer_id == self.meine_id:
+            raise ValueError("Der Besitzer ist immer Admin.")
+        if ja:
+            kontakt = self.db.kontakt_holen(nutzer_id)
+            gesehen = any(m["id"] == nutzer_id for m in self.mitglieder(cid))
+            if not gesehen and not (kontakt and kontakt["status"] == "ok"):
+                raise ValueError("Diese Person ist weder Mitglied noch Kontakt.")
+        def aendern(kanaele, admins, cname, icon):
+            admins = [a for a in admins if a != nutzer_id]
+            if ja:
+                admins.append(nutzer_id)
+            return kanaele, admins, cname, icon
+        self._manifest_aendern(cid, aendern)
+
+    def _rolle(self, cid) -> str:
+        c = self.db.community_holen(cid)
+        if c and c["besitzer_id"] == self.meine_id:
+            return "besitzer"
+        if self.meine_id in ((self._manifest(cid) or {}).get("admins") or []):
+            return "admin"
+        return "mitglied"
 
     def _manifest_uebernehmen(self, cid, manifest):
         c = self.db.community_holen(cid)
@@ -1104,14 +1237,26 @@ class Bote:
                 karte_besitzer = karte_pruefen(inner["karte_besitzer"])
                 basis = manifest_pruefen(basis, {karte_besitzer["id"]: karte_besitzer}, c["besitzer_id"],
                                          stand_version, stand_admins, community_id=cid)
+                self._standardkanal_pruefen(cid, basis)
                 stand_version, stand_admins = basis["version"], basis["admins"]
                 self._manifest_uebernehmen(cid, basis)
             sauber = manifest_pruefen(m, {karte_von["id"]: karte_von}, c["besitzer_id"],
                                       stand_version, stand_admins, community_id=cid)
+            self._standardkanal_pruefen(cid, sauber)
         except ValueError as e:
             log.info("Manifest für %s abgelehnt: %s", cid, e)
             return
         self._manifest_uebernehmen(cid, sauber)
+
+    @staticmethod
+    def _standardkanal_pruefen(cid, manifest):
+        """Ein (womöglich böswilliger) Admin darf den Standardkanal weder
+        löschen noch zum Ankündigungskanal machen: Neue könnten sich sonst
+        nicht mehr melden und bekämen nie ein Manifest."""
+        std = standard_kanal_id(cid)
+        kanal = next((k for k in manifest["kanaele"] if k["id"] == std), None)
+        if kanal is None or kanal["nur_admins"]:
+            raise ValueError("Das Manifest entfernt oder sperrt den ersten Kanal.")
 
     def _auf_beitritt_antworten(self, cid):
         """Ein Neuer braucht das Manifest. Jeder, der es hat, darf es weiterreichen -
@@ -1132,13 +1277,58 @@ class Bote:
         Kontakte, die man in der Community gesehen hat, bekommen den neuen
         Schlüssel automatisch über ihre eigene, verschlüsselte DM.
         """
+        return self._schluessel_wechseln(cid)
+
+    def mitglied_entfernen(self, cid, nutzer_id) -> str:
+        """Wirft jemanden hinaus - so weit das ohne Server geht. Nur der Besitzer.
+
+        Technisch ist das ein neuer Code (wie community_code_erneuern), nur
+        bekommt die entfernte Person den neuen Schlüssel NICHT, und ist sie
+        Admin, verliert sie das Amt im selben Manifest.
+
+        Was das ehrlich bedeutet:
+        - Es stoppt nur NEUE Nachrichten. Was die Person schon gelesen oder
+          heruntergeladen hat, behält sie; ihr Programm merkt nicht einmal,
+          dass sie draussen ist - es kann bloss nichts Neues mehr öffnen.
+        - Den neuen Schlüssel bekommen automatisch nur Mitglieder, die
+          Kontakte des Besitzers sind. Alle anderen brauchen den neuen Code
+          (Rückgabewert) - und wer ihn weitergibt, holt die Person zurück.
+        """
+        c = self.db.community_holen(cid)
+        if not c or c["besitzer_id"] != self.meine_id:
+            raise ValueError("Nur der Besitzer kann Mitglieder entfernen.")
+        nutzer_id = id_normalisieren(nutzer_id)
+        if nutzer_id == self.meine_id:
+            raise ValueError("Dich selbst kannst du nicht entfernen - verlass die Community stattdessen.")
+        admins = (self._manifest(cid) or {}).get("admins") or []
+        eintrag = next((m for m in self.mitglieder(cid) if m["id"] == nutzer_id), None)
+        if nutzer_id not in admins and eintrag is None:
+            raise ValueError("Diese Person ist in dieser Community nicht bekannt.")
+        name = self.name_von(nutzer_id)
+        # Die Marke liegt mindestens auf ihrer letzten Zeile: Zeitstempel sind
+        # eine Behauptung des Absenders und dürfen etwas in der Zukunft liegen.
+        marke = max(_jetzt_ms(), int((eintrag or {}).get("ts") or 0))
+        alle = dict(self.tresor.extra_holen("entfernt", {}) or {})
+        alle[cid] = dict(alle.get(cid) or {}, **{nutzer_id: marke})
+        self.tresor.extra_setzen("entfernt", alle)
+        code = self._schluessel_wechseln(
+            cid, ausser=nutzer_id,
+            aendern=lambda k, a, n, i: (k, [x for x in a if x != nutzer_id], n, i))
+        self._system(standard_kanal_id(cid), f"{name} wurde entfernt.")
+        return code
+
+    def _schluessel_wechseln(self, cid, ausser=None, aendern=lambda k, a, n, i: (k, a, n, i)) -> str:
+        with self._lock:
+            return self._schluessel_wechseln_gesperrt(cid, ausser, aendern)
+
+    def _schluessel_wechseln_gesperrt(self, cid, ausser, aendern) -> str:
         c = self.db.community_holen(cid)
         if not c or c["besitzer_id"] != self.meine_id:
             raise ValueError("Nur der Besitzer kann einen neuen Code erstellen.")
         neu = community_schluessel_neu()
         stand = _jetzt_ms()
         self._schluessel_stand_setzen(cid, stand)
-        mitglieder = {m["id"] for m in self.mitglieder(cid)}
+        mitglieder = {m["id"] for m in self.mitglieder(cid)} - {ausser, self.meine_id}
         self.tresor.community_schluessel_setzen(cid, neu)
         self.db.community_speichern(cid, schluessel=neu)
         for kid in mitglieder:
@@ -1148,7 +1338,7 @@ class Bote:
                                 {"art": "community_schluessel", "community": cid, "schluessel": _b64(neu),
                                  "stand": stand})
                 self.ausgang(Auftrag(u.packen(), kid))
-        self._manifest_aendern(cid, lambda k, a, n, i: (k, a, n, i))
+        self._manifest_aendern(cid, aendern)
         return self.einladung(cid)
 
     def _neuer_community_schluessel(self, u, inner):
@@ -1181,14 +1371,27 @@ class Bote:
         self.tresor.extra_setzen("schluessel_stand", staende)
 
     def mitglieder(self, cid) -> list:
-        """Wer zuletzt geschrieben hat - eine Mitgliederliste gibt es bewusst nicht."""
+        """Wer zuletzt geschrieben hat - eine Mitgliederliste gibt es bewusst nicht.
+
+        Wer entfernt wurde, fehlt, bis er danach wieder schreibt (also mit
+        einem neuen Code zurück ist). Sonst bekäme er beim nächsten neuen
+        Code den Schlüssel wieder automatisch.
+        """
+        entfernt = ((self.tresor.extra_holen("entfernt", {}) or {}).get(cid)) or {}
         gesehen = {}
         for k in self.db.kanaele(cid):
             for n in self.db.nachrichten_seite(k["id"], anzahl=200):
                 if n["absender_id"] not in (SYSTEM, None):
-                    gesehen.setdefault(n["absender_id"], n["ts"])
-        return [{"id": i, "name": self.name_von(i), "farbe": self.farbe_von(i), "ts": ts}
-                for i, ts in sorted(gesehen.items(), key=lambda x: -x[1])]
+                    if n["ts"] > gesehen.get(n["absender_id"], -1):
+                        gesehen[n["absender_id"]] = n["ts"]
+        c = self.db.community_holen(cid) or {}
+        besitzer = c.get("besitzer_id")
+        admins = set((self._manifest(cid) or {}).get("admins") or [])
+        return [{"id": i, "name": self.name_von(i), "farbe": self.farbe_von(i), "ts": ts,
+                 "besitzer": i == besitzer, "admin": i == besitzer or i in admins,
+                 "ich": i == self.meine_id}
+                for i, ts in sorted(gesehen.items(), key=lambda x: -x[1])
+                if ts > int(entfernt.get(i, -1))]
 
     # =================================================================
     #  Für die Oberfläche
@@ -1324,9 +1527,10 @@ class Bote:
                           "gruppe": m.get("art") == "gruppe",
                           "admin": self._ist_admin(c["id"], self.meine_id),
                           "besitzer": c["besitzer_id"] == self.meine_id,
+                          "rolle": self._rolle(c["id"]),
                           "geladen": bool(m),
                           "letzte_ts": max([letzte.get(k["id"], 0) for k in kanaele] or [0]),
-                          "mitglieder": len(self.mitglieder(c["id"])) + 1,
+                          "mitglieder": len({m["id"] for m in self.mitglieder(c["id"])} | {self.meine_id}),
                           "kanaele": [{"id": k["id"], "name": k["name"], "unterhaltung": k["id"],
                                        "nur_admins": k["nur_admins"], "ungelesen": ungelesen.get(k["id"], 0)}
                                       for k in kanaele]})
