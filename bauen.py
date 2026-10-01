@@ -17,14 +17,16 @@ Was das Skript macht:
   4. baut die .exe
   5. prüft, dass die entstandene Datei auch wirklich startet
 
-Warum ein Skript und kein einzelner Befehl: CustomTkinter bringt
-Design-Dateien mit, die PyInstaller von allein nicht findet. Ohne
---collect-all customtkinter baut die .exe zwar fehlerfrei, stürzt beim
-Doppelklick aber sofort ab - und weil sie ohne Konsole läuft, sieht man
-nicht einmal warum.
+Warum ein Skript und kein einzelner Befehl: Die Oberfläche (ui/) muss
+mit in die .exe, argon2 und discord.py bringen Teile mit, die PyInstaller
+von allein nicht findet - und Qt/GTK/Tk, die zufällig installiert sind,
+sollen NICHT mit hinein (sonst wird die Datei dreimal so groß). Fehlt
+etwas, baut die .exe fehlerfrei und stürzt erst beim Doppelklick ab -
+ohne Konsole sieht man nicht einmal warum.
 =====================================================================
 """
 
+import os
 import shutil
 import subprocess
 import tempfile
@@ -45,8 +47,11 @@ def schritt_pakete():
     fehlt = []
     for paket, zweck in [("cryptography", "Verschlüsselung"),
                          ("argon2", "Ableitung des Master-Schlüssels"),
-                         ("customtkinter", "Oberfläche"),
-                         ("PIL", "Icon"),
+                         ("webview", "Fenster (pywebview)"),
+                         ("nacl", "XChaCha20"),
+                         ("pyrage", "age-Format"),
+                         ("discord", "Chat über Discord"),
+                         ("PIL", "Icon und Vorschaubilder"),
                          ("PyInstaller", "Bauen der .exe")]:
         try:
             __import__(paket)
@@ -55,8 +60,8 @@ def schritt_pakete():
             fehlt.append(paket)
             print(f"    [FEHLT] {paket}  ({zweck})")
     if fehlt:
-        namen = {"PIL": "pillow", "PyInstaller": "pyinstaller",
-                 "argon2": "argon2-cffi"}
+        namen = {"PIL": "pillow", "PyInstaller": "pyinstaller", "webview": "pywebview",
+                 "argon2": "argon2-cffi", "nacl": "PyNaCl", "discord": "discord.py"}
         print("\nBitte zuerst installieren:")
         print("    pip install " + " ".join(namen.get(p, p) for p in fehlt))
         return False
@@ -101,15 +106,24 @@ def schritt_bauen(icon):
         "--noconsole",         # kein schwarzes Konsolenfenster daneben
         "--name", NAME,
         "--noconfirm",
-        # Ohne das fehlen CustomTkinter die Design-Dateien und die .exe
-        # stürzt beim Start ab, ohne zu sagen warum.
-        "--collect-all", "customtkinter",
+        # Die Oberfläche: HTML, CSS, JavaScript, Icons, Schrift, Emoji-Liste
+        "--add-data", f"{ORDNER / 'ui'}{os.pathsep}ui",
         # argon2-cffi bringt eine kompilierte Bibliothek mit, die PyInstaller
         # nicht von allein findet. Ohne die Zeile baut die .exe fehlerfrei
         # und scheitert erst beim Entsperren - also genau dann, wenn man es
         # am wenigsten gebrauchen kann.
         "--collect-all", "argon2",
         "--hidden-import", "_argon2_cffi_bindings",
+        # discord.py wird erst beim Verbinden importiert
+        "--collect-all", "discord",
+        "--collect-all", "pyrage",
+        "--collect-submodules", "netz",
+        "--collect-submodules", "kern",
+    ]
+    # Was nicht mit hinein soll, auch wenn es installiert ist
+    for weg in ("tkinter", "customtkinter", "PyQt5", "PyQt6", "PySide2", "PySide6",
+                "gi", "numpy", "matplotlib", "playwright"):
+        befehl += ["--exclude-module", weg]
     ]
     if icon:
         befehl += ["--icon", str(icon)]
@@ -137,7 +151,7 @@ def schritt_probelauf(exe):
     melde("Schritt 5/5: Probelauf")
     # Die .exe kurz starten und schauen, ob sie am Leben bleibt. Startet sie
     # gar nicht, ist sie sofort wieder weg - genau das passiert z.B., wenn
-    # CustomTkinter seine Design-Dateien nicht findet.
+    # ui/ fehlt oder WebView2 nicht startet.
     # In einem Wegwerf-Ordner, nicht in dist/. VP4 legt seinen Datenordner
     # immer NEBEN die .exe - der Probelauf würde sonst ein leeres
     # vp4_daten mit eigener Chat-ID in dist/ hinterlassen, das man beim

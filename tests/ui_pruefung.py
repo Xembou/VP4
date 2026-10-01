@@ -219,7 +219,110 @@ def pruefen(filter_text="", ausgeben=print):
     return ok, fehler
 
 
+
+
+# =====================================================================
+#  Echter Durchlauf: zwei Personen, echte Dienste, echte Oberfläche
+# =====================================================================
+
+def zwei_personen(ausgeben=print):
+    """Einrichten, Freund hinzufügen, annehmen, schreiben, antworten,
+    reagieren - alles durch Klicks in der echten Oberfläche, mit zwei
+    echten VP4-Diensten dahinter (verbunden über ein Spielzeug-Netz)."""
+    import tempfile
+    sys.path.insert(0, str(ORDNER))
+    sys.path.insert(0, str(Path(__file__).resolve().parent))
+    from playwright.sync_api import sync_playwright
+    import dev_server
+    from api import VP4Api
+    from dienst import VP4Dienst
+    from kern.tresor import DPAPIAttrappe
+    from test_dienst import SpielNetz
+
+    BILDER.mkdir(exist_ok=True)
+    probleme = []
+    with tempfile.TemporaryDirectory() as tmp:
+        netz = SpielNetz()
+        dienste = [VP4Dienst(Path(tmp) / n, dpapi=DPAPIAttrappe(), netz_fabrik=netz.fabrik, update_pruefen=False)
+                   for n in ("lena", "tom")]
+        server = [dev_server.starten(VP4Api(d), browser_oeffnen=False) for d in dienste]
+        pfad = "/opt/pw-browsers/chromium-1194/chrome-linux/chrome"
+        try:
+            with sync_playwright() as p:
+                browser = p.chromium.launch(**({"executable_path": pfad} if os.path.exists(pfad) else {}))
+                seiten = []
+                for (_, adresse), name in zip(server, ("Lena", "Tom")):
+                    kontext = browser.new_context(viewport={"width": 1280, "height": 820})
+                    kontext.grant_permissions(["clipboard-read", "clipboard-write"])
+                    s = kontext.new_page()
+                    s.on("pageerror", lambda e, n=name: probleme.append(f"{n}: {e}"))
+                    s.on("console", lambda m, n=name: m.type == "error" and probleme.append(f"{n}: {m.text}"))
+                    s.goto(adresse)
+                    s.wait_for_selector(".einrichtung")
+                    s.click("text=Los geht’s")
+                    s.fill(".einrichtung input.feld", name)
+                    s.click(".einrichtung .knopf.primaer")
+                    felder = s.locator(".einrichtung input[type=password]")
+                    felder.nth(0).fill("Ein-gutes-Passwort-1")
+                    felder.nth(1).fill("Ein-gutes-Passwort-1")
+                    s.check(".einrichtung input[type=checkbox] >> nth=0")
+                    s.click(".einrichtung .knopf.primaer")
+                    s.wait_for_selector(".id-gross")
+                    if name == "Lena":
+                        s.screenshot(path=str(BILDER / "echt-einrichtung-id.png"))
+                    s.click("text=Fertig")
+                    s.wait_for_selector(".seitenleiste")
+                    seiten.append(s)
+                lena, tom = seiten
+                tom_id = dienste[1].profil()["id"]
+                lena.click(".leiste-titelzeile .rund")
+                lena.click("text=Freund hinzufügen")
+                lena.fill(".blatt input.feld", tom_id)
+                lena.click(".blatt >> text=Anfrage senden")
+                tom.wait_for_selector("text=Anfragen", timeout=15000)
+                tom.click(".chatzeile >> text=Anfragen")
+                tom.click(".blatt >> text=Annehmen")
+                tom.keyboard.press("Escape")
+                lena.wait_for_selector(".chatzeile >> text=Tom", timeout=15000)
+                lena.click(".chatzeile >> text=Tom")
+                lena.fill(".eingabe textarea", "Hey Tom! Schon das neue VP4 gesehen? 🔒")
+                lena.keyboard.press("Enter")
+                tom.wait_for_selector(".chatzeile >> text=Lena", timeout=15000)
+                tom.click(".chatzeile >> text=Lena")
+                tom.wait_for_selector("text=Schon das neue VP4 gesehen", timeout=15000)
+                tom.fill(".eingabe textarea", "Ja, sieht richtig gut aus!")
+                tom.keyboard.press("Enter")
+                lena.wait_for_selector("text=sieht richtig gut aus", timeout=15000)
+                # Reaktion per Doppelklick und eine Antwort
+                lena.dblclick(".zeile:not(.ich) .blase >> text=sieht richtig gut aus")
+                tom.wait_for_selector(".reaktion", timeout=15000)
+                lena.fill(".eingabe textarea", "<img src=x onerror=alert(1)> bleibt Text")
+                lena.keyboard.press("Enter")
+                tom.wait_for_selector("text=bleibt Text", timeout=15000)
+                if tom.locator(".verlauf img[src='x']").count():
+                    probleme.append("HTML aus einer Nachricht wurde als HTML eingesetzt!")
+                tom.wait_for_timeout(600)
+                lena.wait_for_timeout(600)
+                lena.screenshot(path=str(BILDER / "echt-chat-lena.png"))
+                tom.screenshot(path=str(BILDER / "echt-chat-tom.png"))
+                browser.close()
+        except Exception as e:
+            probleme.append(f"Durchlauf abgebrochen: {type(e).__name__}: {e}")
+        finally:
+            for srv, _ in server:
+                srv.shutdown()
+            for d in dienste:
+                d.beenden()
+    for x in probleme:
+        ausgeben(f"  [FEHL] {x}")
+    if not probleme:
+        ausgeben("  [OK]   Zwei Personen: einrichten, verbinden, schreiben, reagieren - alles über die Oberfläche")
+    return probleme
+
+
 if __name__ == "__main__":
+    if len(sys.argv) > 1 and sys.argv[1] == "echt":
+        sys.exit(1 if zwei_personen() else 0)
     anzahl, fehler = pruefen(sys.argv[1] if len(sys.argv) > 1 else "")
     print(f"\n{anzahl} Ansichten ohne Befund, {len(fehler)} mit Befund. Bilder: {BILDER}")
     sys.exit(1 if fehler else 0)

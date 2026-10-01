@@ -279,7 +279,7 @@ class ChatAnsicht {
     zeile.append(h("span.uhr", { text: uhrzeit(n.ts) }));
 
     if (!n.geloescht) {
-      zeile.append(h("div.aktionspille.glas.glas-stark",
+      spalte.append(h("div.aktionspille.glas.glas-stark",
         rundknopf("smile-plus", "Reagieren", (e) => this.reaktionsMenue(e.currentTarget, n), "klein"),
         this.darfSchreiben() ? rundknopf("reply", "Antworten", () => this.antworten(n), "klein") : null,
         rundknopf("ellipsis", "Mehr", (e) => this.kontextMenue(e.currentTarget.getBoundingClientRect().left, e.currentTarget.getBoundingClientRect().bottom + 4, n), "klein")));

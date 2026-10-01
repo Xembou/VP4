@@ -283,7 +283,7 @@ textarea.feld { resize: none; line-height: 20px; }
 
 /* --- Hinweise oben (Toast) ---------------------------------------------- */
 .toasts {
-  position: fixed; top: 16px; left: 50%; transform: translateX(-50%);
+  position: fixed; bottom: 92px; left: 50%; transform: translateX(-50%);
   z-index: 70; display: flex; flex-direction: column; align-items: center; gap: 8px;
   pointer-events: none;
 }
@@ -297,7 +297,7 @@ textarea.feld { resize: none; line-height: 20px; }
 .toast.fehler .ic { color: var(--rot); }
 .toast.ok .ic { color: var(--gruen); }
 .toast.weg { animation: ausblenden var(--dauer) forwards; }
-@keyframes toast-rein { from { opacity: 0; transform: translateY(-16px) scale(.96); } }
+@keyframes toast-rein { from { opacity: 0; transform: translateY(16px) scale(.96); } }
 
 /* --- Banner (in einer Fläche) ------------------------------------------ */
 .banner {

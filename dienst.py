@@ -399,7 +399,8 @@ class VP4Dienst:
             try:
                 gefunden = migration.alte_daten_finden(self.ordner)
                 if gefunden.get("noetig"):
-                    alt = {"schluessel": gefunden.get("schluessel_anzahl"), "kontakte": len(gefunden.get("freunde") or [])}
+                    alt = {"kontakte": gefunden.get("freunde", 0), "gruppen": gefunden.get("gruppen", 0),
+                           "braucht_passwort": gefunden.get("braucht_passwort", False)}
             except Exception:
                 alt = None
         return {"phase": self.phase(), "version": VERSION, "repo_url": REPO_URL,

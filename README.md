@@ -2,13 +2,13 @@
 
 <img src="vp4.png" width="120" alt="VP4">
 
-# Verschlüsselungs Programm 4.0
+# VP4
 
-**Texte, Dateien und Ordner verschlüsseln, Schlüssel verwalten und mit Freunden chatten.**
+**Verschlüsselt chatten mit Freunden – plus ein Werkzeugkasten zum Verschlüsseln.**
 
-Kein Konto, keine Anmeldung, kein eigener Server. Sitzt ihr im selben WLAN, läuft
-der Chat direkt zwischen euren Rechnern. Wenn nicht, nimmt er den Umweg über einen
-Discord-Kanal – verschlüsselt, Discord bekommt nur Geheimtext zu sehen.
+Kein Konto, keine Telefonnummer, kein eigener Server. Im selben WLAN geht der
+Chat direkt von PC zu PC, sonst über einen Discord-Kanal – Ende-zu-Ende
+verschlüsselt, Discord sieht nur Geheimtext.
 
 </div>
 
@@ -17,229 +17,207 @@ Discord-Kanal – verschlüsselt, Discord bekommt nur Geheimtext zu sehen.
 ## Herunterladen
 
 1. Auf **[Releases](../../releases)** gehen und `VP4.exe` herunterladen.
-2. Doppelklicken. Fertig – **du brauchst kein Python und musst nichts installieren.**
+2. Doppelklicken. Du brauchst kein Python und musst nichts installieren.
 
-> **Windows warnt beim ersten Start.** Es erscheint „Der Computer wurde durch
-> Windows geschützt". Das liegt daran, dass das Programm nicht signiert ist –
-> eine Signatur kostet mehrere hundert Euro im Jahr, und das ist ein privates
-> Hobby-Projekt. Klick auf **Weitere Informationen** → **Trotzdem ausführen**.
->
-> Wenn du dem nicht traust: Der komplette Quelltext liegt hier offen, und du
-> kannst die `.exe` mit `python bauen.py` jederzeit selbst erzeugen.
+> **Windows warnt beim ersten Start.** „Der Computer wurde durch Windows
+> geschützt" erscheint, weil das Programm nicht signiert ist – eine Signatur
+> kostet mehrere hundert Euro im Jahr, und das hier ist ein Hobby-Projekt.
+> Klick auf **Weitere Informationen** → **Trotzdem ausführen**.
+> Wer dem nicht traut: Der Quelltext liegt hier offen, `python bauen.py`
+> baut dieselbe `.exe` selbst.
 
-Beim allerersten Start legst du ein **Master-Passwort** fest. Lies dazu unbedingt
-den Abschnitt weiter unten – es gibt keine Wiederherstellung.
+VP4 braucht die **Microsoft Edge WebView2-Laufzeit**. Auf Windows 11 ist sie
+eingebaut, auf fast allen Windows-10-PCs auch. Fehlt sie, sagt VP4 das beim
+Start und nennt die Seite, auf der es sie kostenlos gibt.
 
 ---
 
-## Was das Programm kann
+## Der erste Start
 
-### Verschlüsseln und Entschlüsseln
+1. **Name und Farbe** – so sehen dich deine Freunde.
+2. **Master-Passwort** – schützt deinen Tresor (Schlüssel, Kontakte, Chats).
+   **Es gibt keine Wiederherstellung.** Vergisst du es, ist alles auf diesem
+   PC weg. Auf Wunsch merkt sich Windows das Passwort (an dein
+   Windows-Konto gebunden), dann musst du es nicht bei jedem Start tippen.
+3. **Deine ID** – sieht so aus: `7AC5E-HTN4Q`. Die gibst du Freunden.
 
-13 Verfahren, und bei jedem steht dabei, ob es wirklich sicher ist oder nur zum
-Herumprobieren taugt. Für Dateien und Ordner gibt es eine eigene Seite,
-siehe unten.
+Hast du vorher VP4 4 benutzt und liegt `vp4_daten` daneben, übernimmt VP4 5
+mit deinem alten Passwort den Schlüsselbund und die Einstellungen.
+Kontakte und Gruppen lassen sich nicht übernehmen – der Chat ist komplett
+neu verschlüsselt. VP4 zeigt dir eine Liste, wen du neu hinzufügen solltest.
 
-**Sicher – dafür geeignet, etwas zu schützen:**
+---
+
+## Chatten
+
+### Freunde
+
+**＋ → Freund hinzufügen**, ID eintippen (Groß/klein und der Strich sind
+egal), **Anfrage senden**. Dein Freund sieht unter **Anfragen**, dass du
+schreiben möchtest, und nimmt an. Ab dann tauschen eure Programme die
+Schlüssel von selbst aus – niemand muss etwas abtippen.
+
+Alles, was man von einem Messenger erwartet: Antworten, Reaktionen
+(Doppelklick = ❤️), Bearbeiten (↑ im leeren Feld), Löschen für dich oder
+für alle, Bilder, Videos, Dateien bis 100 MB, Sprachnachrichten, „schreibt …",
+Zugestellt/Gelesen (abschaltbar), Anheften, Stummschalten, Suche.
+
+### Gruppen und Communities
+
+- **Gruppe** – ein Chat für ein paar Leute.
+- **Community** – wie ein eigener Discord-Server: mehrere Kanäle
+  (`#allgemein`, `#hausaufgaben` …), Admins, Ankündigungskanäle, in denen nur
+  Admins schreiben.
+
+Beides funktioniert mit einem **Einladungscode** (`VP4G2-…`). Wer ihn hat, ist
+dabei. Das macht es einfach und hat einen Preis, den du kennen solltest:
+Ein weitergegebener Code lässt sich nicht zurückholen, und wer beitritt, kann
+auch Älteres lesen, das noch im Kanal steht. Soll jemand raus, erstellt der
+Besitzer **einen neuen Code** – deine Kontakte unter den Mitgliedern bekommen
+den neuen Schlüssel automatisch, alle anderen brauchen den neuen Code.
+
+Gruppen und Communities laufen immer über Discord, auch im selben WLAN.
+
+---
+
+## Wie gut sind die Nachrichten geschützt?
+
+**Geschützt** ist der Inhalt jeder Nachricht, jedes Bilds, jeder Datei:
+Ende-zu-Ende mit AES-256-GCM. Bei zwei Personen kommt der Schlüssel aus einem
+X25519-Schlüsseltausch, den nur ihr zwei ausrechnen könnt; jede Nachricht
+bekommt davon ihren eigenen Schlüssel. In Gruppen ist zusätzlich jede
+Nachricht vom Absender unterschrieben (Ed25519) – einen Namen kann man
+deshalb nicht fälschen.
+
+Deine **ID wird aus deinen Schlüsseln berechnet.** Wer sich als dein Freund
+ausgeben will, bräuchte eine andere ID. Zur letzten Sicherheit gibt es pro
+Kontakt eine **Sicherheitsnummer** (Schild-Symbol über dem Chat): Vergleicht
+sie einmal am Telefon oder nebeneinander. Stimmt sie, liest niemand mit.
+
+**Nicht geschützt:**
+
+- **Wer wann wem schreibt.** Die IDs stehen offen im Discord-Kanal, und
+  Discord sieht, wie viel und wann.
+- **Alte Nachrichten nach einem Gerätediebstahl.** VP4 hat noch keine
+  „Forward Secrecy" wie Signal: Wer später deinen entsperrten PC hat, kann
+  auch ältere Nachrichten öffnen.
+- **Dein PC selbst.** Ist VP4 entsperrt, liest jeder mit, der davorsitzt.
+
+Und ehrlich: VP4 ist ein privates Hobby-Projekt, **kein geprüftes
+Sicherheitsprodukt**. Die Kryptografie stammt aus geprüften Bibliotheken
+(`cryptography`, `PyNaCl`, `age`), das Programm drumherum hat niemand fachlich
+geprüft.
+
+---
+
+## Werkzeuge
+
+Verschlüsseln ganz ohne Chat:
 
 | Verfahren | Wofür |
 |---|---|
 | **AES-256-GCM** | Der Standard. Wenn du dich nicht entscheiden willst: nimm das. |
-| **ChaCha20-Poly1305** | Gleichwertig zu AES, auf älteren Geräten schneller. |
-| **Passwort (AES-256)** | Du gibst einfach ein Passwort ein statt einen langen Schlüssel. Am praktischsten, wenn du jemandem etwas schicken willst. |
-| **RSA-2048** | Zwei Schlüssel: Der öffentliche darf jeder haben, mit dem privaten entschlüsselst du. Nur für kurze Texte. |
+| **ChaCha20-Poly1305 / XChaCha20** | Gleichwertig zu AES; XChaCha mit 24-Byte-Nonce. |
+| **AES-256-GCM-SIV** | Verzeiht ein versehentlich doppelt benutztes Nonce. |
+| **Passwort (AES-256)** | Ein Passwort statt eines langen Schlüssels. |
+| **age (Passwort / Schlüsselpaar)** | Das offene age-Format – auch mit dem offiziellen Programm `age` lesbar. |
+| **RSA-2048** | Zwei Schlüssel, nur für kurze Texte. |
+| **Post-Quanten (Hybrid)** | ML-KEM-768 + X25519 (HPKE): auch gegen künftige Quantencomputer gedacht, heute mindestens so stark wie X25519. |
 
-**Nur zum Spielen – in Sekunden zu knacken:**
+**Nur zum Spielen – in Sekunden zu knacken:** Caesar · Vigenère · Playfair ·
+Rail-Fence · ROT13 · Atbash · Morse · XOR · Base64.
 
-Caesar · Vigenère · Playfair · Rail-Fence · ROT13 · Atbash · Morse · XOR · Base64
-
-Diese Verfahren sind Jahrhunderte alt und interessant zum Ausprobieren – aber
-schütze damit nichts, was wirklich geheim bleiben soll.
-
-### Dateien und ganze Ordner
-
-Nicht nur Text: VP4 verschlüsselt auch **Dateien und komplette Ordner** zu
-einer `.vp4`-Datei. Das läuft im Hintergrund mit Fortschrittsbalken und
-Abbrechen-Knopf, und die Grösse spielt keine Rolle – die Daten wandern
-blockweise durch und müssen nie ganz in den Arbeitsspeicher passen.
-
-Der **Dateiname steckt mit im verschlüsselten Teil**. Von aussen ist an
-`Zeugnis.pdf.vp4` also nicht abzulesen, was drin war – man sieht nur eine
-Datei namens `Zeugnis.pdf.vp4`, deshalb den Namen ruhig noch ändern.
-
-Wird an einer verschlüsselten Datei auch nur ein Bit verändert, ein Stück
-abgeschnitten oder etwas umsortiert, merkt VP4 das beim Entschlüsseln und
-gibt lieber einen Fehler aus, als halb richtige Daten.
-
-⚠️ Das Original bleibt liegen. **VP4 löscht von sich aus nichts** – wenn du
-es weghaben willst, musst du es selbst löschen. (Und ehrlich gesagt: auf
-einer SSD bekommt man Daten mit normalem Löschen ohnehin nicht sicher weg,
-egal was Programme mit „Schreddern" im Namen versprechen.)
-
-### Schlüsselspeicher
-
-Deine Schlüssel liegen verschlüsselt auf der Festplatte, geschützt durch dein
-Master-Passwort. Du kannst sie benennen, mit Notizen versehen und direkt beim
-Verschlüsseln einsetzen.
-
-### Signieren und Prüfsummen
-
-Mit einer **Ed25519-Signatur** beweist du, dass ein Text wirklich von dir stammt
-und unterwegs nicht verändert wurde. Der Text bleibt dabei lesbar – das ist
-etwas anderes als Verschlüsseln. Dazu Prüfsummen (SHA-256 und andere), um zu
-prüfen, ob zwei Dateien exakt gleich sind.
-
-### Obsidian-Verknüpfung
-
-Schlüssel lassen sich als Notiz in einen Obsidian-Vault schreiben und von dort
-wieder einlesen. Praktisch, wenn du deine Notizen ohnehin dort hast.
-
-⚠️ In der Notiz stehen die Schlüssel **im Klartext**. Wird dein Vault über
-Obsidian Sync, iCloud oder Dropbox synchronisiert, wandern sie mit.
-
-### Chat – im WLAN und von überall
-
-Jede Installation bekommt beim ersten Start eine eigene ID wie `7AC5-EHTN`.
-Tauscht die IDs, und ihr könnt chatten und Bilder oder Videos schicken.
-
-VP4 sucht sich den Weg selbst:
-
-| Weg | Wann | Was passiert |
-|---|---|---|
-| **Direkt im WLAN** | Ihr seid im selben Netz | Die Nachricht geht unmittelbar von Rechner zu Rechner. Nichts verlässt die Wohnung. |
-| **Über Discord** 🌐 | Ihr seid es nicht | Die fertig verschlüsselte Nachricht nimmt den Umweg über einen Discord-Kanal. |
-
-Das WLAN hat dabei immer Vorrang – dort bleibt alles im Haus. Eine Chatzeile
-zeigt mit 🌐, wenn sie den Umweg genommen hat. Umstellen kannst du das unter
-**Einstellungen → Chat-Weg**.
-
-### Gruppen
-
-Neben einzelnen Freunden gibt es Gruppen. **＋ Gruppe** macht eine neue auf,
-**Beitreten** bringt dich in eine fremde, **Code** zeigt den Einladungscode.
-
-Der Code ist die ganze Mitgliedschaft: Wer ihn hat, ist dabei – eine Liste, wer
-dazugehört, gibt es nicht. Das macht das Beitreten einfach und hat einen Preis:
-Zurückholen lässt sich ein Code nicht, und wer beitritt, kann auch Älteres
-lesen, das noch im Kanal steht. Soll jemand nicht mehr mitlesen, macht ihr eine
-neue Gruppe auf.
-
-Gruppen laufen immer über Discord – auch wenn ihr im selben WLAN sitzt. Im WLAN
-müsste VP4 wissen, an wen es die Nachricht schicken soll, und das weiß bei einer
-Gruppe niemand.
-
-### Wie gut sind die Nachrichten geschützt?
-
-Das steht im Programm über jedem Chat und neben jedem Freund:
-
-- **🔒 Ein eigener Schlüssel**, den nur ihr zwei habt (🔑 in der Freundesliste).
-  Niemand sonst kann mitlesen, auch kein anderer VP4-Benutzer.
-- **👥 Der eingebaute Gruppenschlüssel.** Er steckt in der Programmdatei, damit
-  ihr sofort loslegen könnt, ohne vorher etwas auszutauschen. Gegen Discord und
-  gegen Fremde schützt er vollständig – aber **jeder, der dasselbe VP4 hat, kann
-  alles im Kanal mitlesen**, auch Nachrichten zwischen zwei anderen. Das ist eher
-  ein Gruppenchat als ein privates Gespräch.
-- **🔓 Gar kein Schlüssel.** Geht nur im WLAN. Über Discord verschickt VP4
-  grundsätzlich nichts Unverschlüsseltes – dort liest sonst jedes Server-Mitglied
-  mit, und Discord speichert alles dauerhaft.
-
-Willst du mit einem bestimmten Freund wirklich unter vier Augen schreiben, trag
-für ihn einen eigenen Schlüssel ein. Der geht dem Gruppenschlüssel immer vor.
-
-Über den Chat gehen zurzeit höchstens 50 MB verschlüsselt. Ist eine Datei
-grösser, **schickt VP4 sie nicht heimlich im Klartext**, sondern sagt es dir:
-verschlüssele sie dann auf der Seite *Dateien* und schicke die `.vp4`.
+Außerdem: **Dateien und ganze Ordner** als `.vp4` oder `.age` (beliebig
+groß, mit Fortschritt und Abbrechen), **Schlüsselbund**, **Signieren &
+Prüfen** (Ed25519), **Prüfsummen** und **Obsidian** – Schlüssel in deinen
+Vault schreiben, wahlweise im Klartext oder **verschlüsselt mit age**.
+VP4 löscht von sich aus nie ein Original.
 
 ---
 
-## Das Master-Passwort – bitte einmal lesen
+## Der Discord-Weg – und sein Haken
 
-Beim ersten Start legst du ein Master-Passwort fest. Damit wird dein
-Schlüsselspeicher verschlüsselt.
+Damit jeder VP4 herunterladen und sofort schreiben kann, steckt in der
+`VP4.exe` von GitHub ein **eingebauter Discord-Bot-Zugang**. Das ist eine
+bewusste Entscheidung, und sie hat einen Haken:
 
-**Das Passwort wird nirgends gespeichert.** Nicht im Klartext, nicht
-verschlüsselt, nirgends. Aus ihm wird nur der Schlüssel berechnet, mit dem die
-Datei ver- und entschlüsselt wird – mit **Argon2id**, einem Verfahren, das
-absichtlich Zeit *und* 64 MB Arbeitsspeicher verbraucht. Der Speicherbedarf ist
-der eigentliche Trick: Daran scheitern Grafikkarten, die sonst Tausende
-Passwörter gleichzeitig durchprobieren könnten.
+- Den Token kann jeder, der will, aus der `.exe` herausholen.
+- Deine **Nachrichten bleiben trotzdem geheim** – der Bot sieht nur Geheimtext.
+- Aber jemand könnte den Bot **stören**: den Kanal fluten, Zeilen löschen,
+  oder das gemeinsame Kontingent von 1000 Anmeldungen pro Tag aufbrauchen.
+  Dann setzt Discord den Token zurück, und der Discord-Weg geht bei allen
+  nicht mehr, bis es eine neue Version gibt. Das WLAN geht weiter.
 
-Das bedeutet: **Wenn du es vergisst, kommst du nie wieder an deine gespeicherten
-Schlüssel.** Niemand kann das rückgängig machen – auch dieses Programm nicht.
-Dann bleibt nur, den Ordner `vp4_daten` zu löschen und neu anzufangen.
+Wenn das passiert, zeigt VP4 „Der eingebaute Discord-Zugang wurde gesperrt"
+und weist auf die neue Version hin, sobald es sie gibt.
 
-Das ist unbequem, aber genau der Grund, warum der Speicher etwas taugt: Jede
-Wiederherstellungsmöglichkeit wäre auch ein Weg für jemand anderen.
+Wer unabhängig sein will, trägt unter **Einstellungen → Discord** einen
+eigenen Bot ein (siehe unten). Der geht dem eingebauten immer vor.
 
-👉 **Schreib dir das Passwort auf, bevor du es eingibst.**
+### Für den, der den Bot betreibt
+
+1. Eigenen Discord-Server nur für VP4 anlegen, darin 1–3 Textkanäle.
+2. Im [Developer Portal](https://discord.com/developers/applications) eine
+   Anwendung mit Bot anlegen, **Message Content Intent** einschalten.
+3. Den Bot einladen – **nur** mit: Kanäle ansehen, Nachrichten senden,
+   Nachrichtenverlauf lesen, Dateien anhängen. Keine Admin-Rechte, kein
+   „Nachrichten verwalten", in keinem anderen Server.
+4. Im GitHub-Repo unter *Settings → Secrets and variables → Actions*:
+   `DISCORD_BOT_TOKEN` und `DISCORD_KANAL_IDS` (mehrere mit Komma).
+   Mehrere Kanäle verteilen Discords Limit von rund fünf Nachrichten in fünf
+   Sekunden pro Kanal – das teilen sich alle VP4-Nutzer.
+5. `git tag v5.0.1 && git push origin v5.0.1` – GitHub baut und veröffentlicht.
+
+**Wenn Discord den Token sperrt:** Im Developer Portal *Reset Token*, das neue
+Secret eintragen, neuen Tag pushen. VP4 meldet die neue Version beim nächsten
+Start (eine einzige Anfrage an GitHubs öffentliche API, ohne etwas über dich
+mitzuschicken; heruntergeladen wird nie von selbst).
 
 ---
 
-## Wenn der Chat nicht funktioniert
+## Wenn etwas nicht geht
 
 | Problem | Was hilft |
 |---|---|
-| Freund taucht nicht auf | Im selben WLAN: Ein Gäste-WLAN trennt Geräte voneinander ab. Sonst muss unter **Einstellungen → Chat-Weg** „WLAN und Discord" oder „nur Discord" stehen. |
-| Nichts geht über Discord | Ist ein Discord-Zugang hinterlegt? In der fertigen `VP4.exe` steckt er drin; startest du aus dem Quelltext, trägst du ihn unter **Einstellungen → Discord** selbst ein. |
-| Unten steht „Chat: Fehler" | Der Port war belegt. VP4 einmal beenden und neu starten. |
-| Niemand erreicht dich | Hat die Windows-Firewall beim ersten Start gefragt? VP4 muss erlaubt sein. |
-| „Nachricht konnte nicht entschlüsselt werden" | Ihr habt unterschiedliche gemeinsame Schlüssel eingetragen. Einer erzeugt einen neuen, schickt ihn dem anderen, beide tragen genau denselben ein. |
+| Freund taucht im WLAN nicht auf | Gäste-WLANs trennen Geräte. Windows-Firewall: VP4 erlauben (sie fragt beim ersten Start). |
+| „Keine Verbindung" unten links | Kein Internet, oder der Discord-Zugang ist gesperrt – siehe oben. |
+| Nachricht hat ein rotes „Nicht gesendet" | Draufklicken sendet sie nochmal. |
+| Anfrage kommt nicht an | Beide brauchen VP4 5. IDs aus VP4 4 (`ABCD-1234`) gelten nicht mehr. |
+| „Schlüssel geändert" | Jemand hat sich mit anderen Schlüsseln unter dieser ID gemeldet – VP4 hat es abgelehnt. Sicherheitsnummer vergleichen. |
+| Passwort vergessen | Keine Wiederherstellung. *Einstellungen → Daten → Alles löschen* und neu einrichten. |
 
 ---
 
 ## Selbst bauen
 
-Der Quelltext liegt unter **[github.com/FarHeadphone2753/VP4](https://github.com/FarHeadphone2753/VP4)**.
-Du brauchst Python 3.9 oder neuer.
-
 ```bash
-git clone https://github.com/FarHeadphone2753/VP4.git
+git clone https://github.com/Xembou/VP4.git
 cd VP4
+pip install -r requirements.txt pyinstaller
 
-pip install cryptography argon2-cffi customtkinter pillow pyinstaller discord.py
-
-python VP4.py        # direkt starten
-python test_vp4.py   # Selbsttest (241 Prüfungen)
-python bauen.py      # eigene VP4.exe erzeugen -> dist/VP4.exe
+python VP4.py              # Programmfenster
+python VP4.py --browser    # dieselbe App im Browser (zum Entwickeln)
+python test_vp4.py         # Selbsttest
+python bauen.py            # eigene VP4.exe -> dist/VP4.exe
 ```
+
+Für die Oberflächen-Prüfung mit Screenshots zusätzlich `pip install playwright`
+(und einmal `playwright install chromium`), dann `python tests/ui_pruefung.py`.
 
 ### Aufbau
 
-| Datei | Inhalt |
+| Ordner / Datei | Inhalt |
 |---|---|
-| `VP4.py` | Einstiegspunkt |
-| `gui.py` | Oberfläche (CustomTkinter, Dark Mode) |
-| `krypto.py` | Alle Verfahren, Signaturen, Prüfsummen |
-| `dateien.py` | Dateien und Ordner als `.vp4`-Container |
-| `speicher.py` | Schlüsselspeicher, Einstellungen, Obsidian |
-| `chat.py` | Chat im WLAN |
-| `transport.py` | Wählt den Weg: WLAN, Discord oder beides |
-| `discord_transport.py` | Chat über einen Discord-Kanal |
-| `test_vp4.py` | Selbsttest |
+| `VP4.py` | Einstieg: prüft Pakete, öffnet das Fenster |
+| `api.py` | Was die Oberfläche von Python wollen darf |
+| `dienst.py` | Tresor, Datenbank, Bote, Netz, Versand |
+| `kern/` | Reine Logik: Verfahren, Tresor, Identität, Ende-zu-Ende, Nachrichten |
+| `netz/` | WLAN, Discord, Wegwahl, Update-Prüfung |
+| `ui/` | Die Oberfläche – HTML, CSS, JavaScript, ohne Build-Schritt |
+| `tests/` | Prüfmodule; `test_vp4.py` führt alle aus |
 
 Deine Daten liegen in `vp4_daten` neben dem Programm. Dieser Ordner gehört dir
-allein – er wird nie mit hochgeladen.
+allein und wird nie mit hochgeladen.
 
----
-
-## Ehrlich gesagt
-
-Das hier ist ein privates Hobby-Projekt, **kein geprüftes Sicherheitsprodukt**.
-Die verwendete Kryptografie ist Standard und selbst nicht gebastelt (die
-Bibliothek `cryptography`), aber das Programm drumherum hat niemand fachlich
-geprüft.
-
-Für wirklich Wichtiges – Bankdaten, Passwörter für echte Konten – sollte das
-nicht deine einzige Absicherung sein.
-
-Und zwei bekannte Schwächen, die du kennen solltest:
-
-Beim Chat wird beim Verbindungsaufbau nur **behauptet**, wer man ist –
-nachgeprüft wird es nicht. Wer im selben WLAN sitzt oder im selben Discord-Kanal
-ist, könnte sich als einer deiner Freunde ausgeben.
-
-Und der eingebaute Gruppenschlüssel ist eine **Bequemlichkeit, keine
-Sicherheitsverbesserung**: Er sorgt dafür, dass ihr sofort losschreiben könnt,
-schützt euch aber nicht voreinander. Wer dasselbe VP4 hat, liest im Kanal alles
-mit. Für ein Programm unter Freunden ist beides in Ordnung, für Vertrauliches
-nicht – dafür gibt es die eigenen Schlüssel.
+Mitgeliefert: [Lucide](https://lucide.dev) Icons (ISC), [Inter](https://rsms.me/inter/)
+(SIL OFL 1.1), Emoji-Namen von [emojibase](https://emojibase.dev) (MIT).

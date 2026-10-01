@@ -182,17 +182,18 @@
 }
 .zeile.ich .uhr { left: -2px; right: auto; }
 
-/* Aktionen beim Drüberfahren */
+/* Aktionen beim Drüberfahren: neben der Blase, wie die Tapback-Leiste */
+.zeile .spalte { position: relative; }
 .aktionspille {
-  position: absolute; top: -14px; z-index: 3;
+  position: absolute; top: 50%; z-index: 3;
   display: flex; gap: 2px; padding: 3px;
   border-radius: var(--r-kapsel);
-  opacity: 0; transform: translateY(4px) scale(.96); pointer-events: none;
+  opacity: 0; transform: translateY(-50%) scale(.94); pointer-events: none;
   transition: opacity var(--dauer-kurz), transform var(--dauer-kurz) var(--feder);
 }
-.zeile:not(.ich) .aktionspille { left: calc(36px + min(68%, 560px) - 120px); }
-.zeile.ich .aktionspille { right: calc(min(68%, 560px) - 120px); }
-.zeile:hover .aktionspille, .aktionspille:focus-within { opacity: 1; transform: none; pointer-events: auto; }
+.zeile:not(.ich) .aktionspille { left: calc(100% + 8px); }
+.zeile.ich .aktionspille { right: calc(100% + 8px); }
+.zeile:hover .aktionspille, .aktionspille:focus-within { opacity: 1; transform: translateY(-50%); pointer-events: auto; }
 .aktionspille .rund { width: 28px; height: 28px; }
 
 /* Tippt gerade */
@@ -238,6 +239,8 @@
   user-select: text;
 }
 .eingabe textarea::placeholder { color: var(--text-3); }
+.eingabe textarea:focus-visible { box-shadow: none; }
+.eingabe:focus-within { box-shadow: inset 0 1px 0 var(--glas-licht), 0 0 0 3px var(--akzent-weich), var(--glas-schatten); }
 .senden { transition: transform var(--dauer) var(--feder-federnd), opacity var(--dauer-kurz); }
 .senden.rein { animation: reaktion-pop var(--dauer) var(--feder-federnd); }
 

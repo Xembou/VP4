@@ -122,7 +122,7 @@ export function einrichtungZeigen(ziel, status, fertig) {
       return [
         h("div.logo", { style: { background: "linear-gradient(160deg,#FFB86B,#FF8D28)" } }, ic("download")),
         h("h1", { text: "VP4 4 gefunden" }),
-        h("p.unter", { text: `Neben dem Programm liegen Daten der alten Version (${alteDaten.schluessel ?? 0} Schlüssel). Mit dem alten Master-Passwort holst du deinen Schlüsselbund und deine Einstellungen herüber.` }),
+        h("p.unter", { text: "Neben dem Programm liegen Daten der alten Version. Mit dem alten Master-Passwort holst du deinen Schlüsselbund und deine Einstellungen herüber." }),
         pw, fehler,
         h("div.banner", { style: { "margin-top": "6px" } }, ic("info"), h("div", "Kontakte und Gruppen lassen sich nicht übernehmen – VP4 5 verschlüsselt den Chat ganz neu. Du siehst danach eine Liste, wen du neu hinzufügen solltest.")),
         h("div.knoepfe", knopf("Überspringen", weiter, "gross"), knopf("Übernehmen", los, "primaer gross")),

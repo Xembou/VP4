@@ -1,17 +1,25 @@
 # =====================================================================
 #  Baut VP4.exe automatisch und hängt sie an ein GitHub-Release
 # =====================================================================
-# Damit musst du die .exe nicht mehr selbst bauen und hochladen. Ablauf:
 #
-#     git tag v4.1
-#     git push origin v4.1
+#     git tag v5.0.0
+#     git push origin v5.0.0
 #
 # GitHub baut daraufhin auf einem eigenen Windows-Rechner, lässt den
 # Selbsttest laufen und legt ein Release mit der fertigen VP4.exe an.
-# Deine Freunde laden sie dann einfach unter "Releases" herunter.
+# Wer VP4 haben will, lädt sie einfach unter "Releases" herunter.
 #
-# Der Selbsttest läuft dabei ohne Fenster (VP4_TEST_OHNE_GUI), weil auf
-# GitHubs Rechnern kein Bildschirm angeschlossen ist.
+# DER EINGEBAUTE DISCORD-ZUGANG
+# ------------------------------
+# Leon hat am 01.10.2026 entschieden: Die öffentliche .exe enthält den
+# Bot-Token, damit jeder sofort chatten kann. Dafür im Repo unter
+# Settings > Secrets and variables > Actions anlegen:
+#     DISCORD_BOT_TOKEN    der Token des Bots
+#     DISCORD_KANAL_IDS    eine oder mehrere Kanal-IDs, mit Komma getrennt
+# Was das bedeutet (der Token ist aus der .exe herauszuholen, die
+# Nachrichten bleiben trotzdem Ende-zu-Ende verschlüsselt) und was man
+# tut, wenn Discord den Token sperrt, steht in der README.
+# Ohne die Secrets baut alles genauso - nur ohne eingebauten Zugang.
 # =====================================================================
 
 name: VP4.exe bauen und veröffentlichen
@@ -20,7 +28,6 @@ on:
   push:
     tags:
       - "v*"
-  # Erlaubt außerdem, den Bau von Hand über den Actions-Reiter zu starten
   workflow_dispatch:
 
 permissions:
@@ -37,12 +44,12 @@ jobs:
       - name: Python einrichten
         uses: actions/setup-python@v5
         with:
-          python-version: "3.12"
+          python-version: "3.13"
 
       - name: Pakete installieren
         run: |
           python -m pip install --upgrade pip
-          pip install cryptography argon2-cffi customtkinter pillow pyinstaller discord.py
+          pip install -r requirements.txt pyinstaller
 
       - name: Selbsttest
         env:
@@ -50,47 +57,39 @@ jobs:
         run: python test_vp4.py
 
       # Erst NACH dem Selbsttest, damit der Token nirgends in einer
-      # Testausgabe auftauchen kann. Fehlen die Secrets, bleibt die Datei
-      # leer - dann baut alles genauso, nur ohne eingebauten Discord-Zugang,
-      # und der Chat über Discord lässt sich weiterhin von Hand einrichten.
+      # Testausgabe auftauchen kann.
       - name: Discord-Zugang einsetzen
         env:
           BOT_TOKEN: ${{ secrets.DISCORD_BOT_TOKEN }}
-          KANAL_ID: ${{ secrets.DISCORD_KANAL_ID }}
-          GRUPPEN_SCHLUESSEL: ${{ secrets.VP4_GRUPPEN_SCHLUESSEL }}
+          KANAL_IDS: ${{ secrets.DISCORD_KANAL_IDS }}
         run: |
-          if ($env:BOT_TOKEN -and $env:KANAL_ID) {
+          if ($env:BOT_TOKEN -and $env:KANAL_IDS) {
             $datei = "discord_konfig.py"
             $inhalt = Get-Content $datei -Raw -Encoding UTF8
             $inhalt = $inhalt -replace 'BOT_TOKEN = ""', "BOT_TOKEN = `"$env:BOT_TOKEN`""
-            $inhalt = $inhalt -replace 'KANAL_ID = ""', "KANAL_ID = `"$env:KANAL_ID`""
-            if ($env:GRUPPEN_SCHLUESSEL) {
-              $inhalt = $inhalt -replace 'GRUPPEN_SCHLUESSEL = ""', "GRUPPEN_SCHLUESSEL = `"$env:GRUPPEN_SCHLUESSEL`""
-              Write-Output "Gruppenschlüssel eingesetzt."
-            } else {
-              Write-Output "WARNUNG: Kein VP4_GRUPPEN_SCHLUESSEL hinterlegt - Freunde"
-              Write-Output "muessen ihre Schluessel dann wieder von Hand austauschen."
-            }
+            $inhalt = $inhalt -replace 'KANAL_IDS = ""', "KANAL_IDS = `"$env:KANAL_IDS`""
             Set-Content $datei $inhalt -Encoding UTF8 -NoNewline
-            Write-Output "Discord-Zugang eingesetzt (Kanal $env:KANAL_ID)."
+            Write-Output "Discord-Zugang eingesetzt."
           } else {
             Write-Output "Keine Discord-Secrets hinterlegt - die .exe wird ohne"
-            Write-Output "eingebauten Zugang gebaut. Zum Nachholen im Repo unter"
-            Write-Output "Settings > Secrets and variables > Actions anlegen:"
-            Write-Output "  DISCORD_BOT_TOKEN, DISCORD_KANAL_ID, VP4_GRUPPEN_SCHLUESSEL"
+            Write-Output "eingebauten Zugang gebaut (Chat dann nur im WLAN oder"
+            Write-Output "mit eigenem Bot unter Einstellungen > Discord)."
           }
 
       - name: Icon erzeugen
         run: python icon_erzeugen.py
 
-      # discord.py wird erst zur Laufzeit importiert, wenn jemand den Weg über
-      # Discord einschaltet. PyInstaller sieht diesen Import nicht von selbst -
-      # ohne --collect-all fehlt das Paket in der .exe und der Chat über
-      # Discord meldet dort "Paket fehlt", obwohl alles eingerichtet ist.
       - name: VP4.exe bauen
         run: >
-          pyinstaller --onefile --noconsole --name VP4
-          --icon vp4.ico --collect-all customtkinter --collect-all discord
+          pyinstaller --onefile --noconsole --name VP4 --icon vp4.ico
+          --add-data "ui;ui"
+          --collect-all argon2 --hidden-import _argon2_cffi_bindings
+          --collect-all discord --collect-all pyrage
+          --collect-submodules netz --collect-submodules kern
+          --exclude-module tkinter --exclude-module customtkinter
+          --exclude-module PyQt5 --exclude-module PyQt6
+          --exclude-module PySide2 --exclude-module PySide6
+          --exclude-module numpy --exclude-module matplotlib --exclude-module playwright
           --noconfirm VP4.py
 
       - name: Nachsehen, ob die .exe entstanden ist
