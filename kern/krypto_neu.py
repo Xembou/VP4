@@ -579,7 +579,8 @@ def age_passwort_verschluesseln(klartext: str, passwort: str) -> str:
         ct = _age_passwort.encrypt(klartext.encode("utf-8"), passwort, armored=True)
     except _age_fehler() as e:
         raise ValueError(f"age konnte nicht verschlüsseln: {e}")
-    return ct.decode("ascii")
+    # Unter Windows liefert age \r\n - einheitlich \n, sonst stimmt kein Vergleich
+    return ct.decode("ascii").replace("\r\n", "\n")
 
 
 def age_passwort_entschluesseln(geheimtext: str, passwort: str) -> str:
@@ -601,7 +602,8 @@ def age_verschluesseln(klartext: str, empfaenger) -> str:
         ct = _pyrage.encrypt(klartext.encode("utf-8"), ziele, armored=True)
     except _age_fehler() as e:
         raise ValueError(f"age konnte nicht verschlüsseln: {e}")
-    return ct.decode("ascii")
+    # Unter Windows liefert age \r\n - einheitlich \n, sonst stimmt kein Vergleich
+    return ct.decode("ascii").replace("\r\n", "\n")
 
 
 def age_entschluesseln(geheimtext: str, identitaet) -> str:

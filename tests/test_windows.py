@@ -277,7 +277,13 @@ def _lan(R):
     from netz.lan import LanNetz
 
     R.pruefe("socket.SO_EXCLUSIVEADDRUSE gibt es", hasattr(socket, "SO_EXCLUSIVEADDRUSE"))
-    R.pruefe("socket.SIO_UDP_CONNRESET gibt es", hasattr(socket, "SIO_UDP_CONNRESET"))
+    # socket.SIO_UDP_CONNRESET gibt es in Python NICHT (hier zuerst
+    # aufgefallen) - lan.py schaltet es deshalb über WSAIoctl ab.
+    probe = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
+    try:
+        R.pruefe("SIO_UDP_CONNRESET lässt sich über WSAIoctl abschalten", lan_modul._udp_connreset_aus(probe))
+    finally:
+        probe.close()
     _feste_ports(R, lan_modul)
 
     ua, ub = _freier_udp_port(), _freier_udp_port()

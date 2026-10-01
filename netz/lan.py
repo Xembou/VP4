@@ -115,6 +115,29 @@ class _Gegenstelle:
         self.zuletzt = zuletzt
 
 
+def _udp_connreset_aus(sock) -> bool:
+    """Schaltet unter Windows SIO_UDP_CONNRESET ab. True, wenn es geklappt hat.
+
+    Pythons socket-Modul kennt die Konstante NICHT (auf echtem Windows
+    nachgesehen, Oktober 2026) und sock.ioctl() nimmt nur drei feste
+    Befehle an - deshalb direkt über WSAIoctl. Klappt es nicht, fängt
+    der Empfang den ConnectionResetError trotzdem ab; das hier ist die
+    zweite Sicherung.
+    """
+    if sys.platform != "win32":
+        return False
+    try:
+        import ctypes
+        aus = ctypes.c_uint32(0)
+        zurueck = ctypes.c_uint32(0)
+        ergebnis = ctypes.windll.ws2_32.WSAIoctl(
+            ctypes.c_size_t(sock.fileno()), ctypes.c_uint32(0x9800000C),
+            ctypes.byref(aus), ctypes.sizeof(aus), None, 0, ctypes.byref(zurueck), None, None)
+        return ergebnis == 0
+    except Exception:
+        return False
+
+
 class LanNetz:
     """UDP-Erkennung + TCP-Übertragung für Umschläge.
 
@@ -273,11 +296,7 @@ class LanNetz:
             # sendto() beim NÄCHSTEN recvfrom() als ConnectionResetError. Ohne
             # das hier würde eine einzige Antwort an ein gerade beendetes VP4
             # die ganze Erkennung abwürgen.
-            if hasattr(socket, "SIO_UDP_CONNRESET"):
-                try:
-                    sock.ioctl(socket.SIO_UDP_CONNRESET, False)
-                except (OSError, ValueError):
-                    pass
+            _udp_connreset_aus(sock)
             sock.bind((self.bind_host, self.port_udp))
             sock.settimeout(0.25)
         except OSError:
