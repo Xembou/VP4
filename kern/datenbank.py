@@ -526,6 +526,13 @@ class Datenbank:
             "UPDATE unterhaltungen SET zuletzt_gelesen=MAX(zuletzt_gelesen, ?) "
             "WHERE id=?", (int(ts), unterhaltung_id))
 
+    def unterhaltung_art_setzen(self, unterhaltung_id: str, art: str) -> bool:
+        """Für Beitretende: Ob es eine Gruppe oder ein Kanal ist, steht erst im Manifest."""
+        return self._aendern("UPDATE unterhaltungen SET art=? WHERE id=?", (art, unterhaltung_id))
+
+    def unterhaltung_titel_setzen(self, unterhaltung_id: str, titel: str) -> bool:
+        return self._aendern("UPDATE unterhaltungen SET titel=? WHERE id=?", (titel or "", unterhaltung_id))
+
     def unterhaltung_loeschen(self, unterhaltung_id: str) -> bool:
         """Löscht die Unterhaltung samt Nachrichten, Reaktionen, Anhängen."""
         ok = self._aendern("DELETE FROM unterhaltungen WHERE id=?", (unterhaltung_id,))
@@ -625,6 +632,13 @@ class Datenbank:
             self.wal_zurueckschreiben()
         return ok
 
+    def nachricht_inhalt_ersetzen(self, nachricht_id: str, inhalt) -> bool:
+        """Wie nachricht_bearbeiten, aber ohne "bearbeitet" - für Dinge, die
+        der Absender nicht geändert hat (z. B. wo eine empfangene Datei liegt)."""
+        blob = self._inhalt_ver(nachricht_id, inhalt)
+        return self._aendern("UPDATE nachrichten SET inhalt_enc=? WHERE id=? AND geloescht=0",
+                             (blob, nachricht_id))
+
     def nachricht_als_geloescht_markieren(self, nachricht_id: str) -> list:
         """Löscht den Inhalt, lässt aber einen Platzhalter stehen.
 
@@ -644,6 +658,16 @@ class Datenbank:
                       "zustand='geloescht' WHERE nachricht_id=?", (nachricht_id,))
         self.wal_zurueckschreiben()
         return pfade
+
+    def nachricht_weg_setzen(self, nachricht_id: str, weg: str) -> bool:
+        return self._aendern("UPDATE nachrichten SET weg=? WHERE id=?", (weg, nachricht_id))
+
+    def nachricht_entfernen(self, nachricht_id: str) -> bool:
+        """Ganz weg, ohne Platzhalter - nur für eigene, nie angekommene Nachrichten."""
+        ok = self._aendern("DELETE FROM nachrichten WHERE id=?", (nachricht_id,))
+        if ok:
+            self.wal_zurueckschreiben()
+        return ok
 
     def nachricht_status_setzen(self, nachricht_id: str, status: str) -> bool:
         return self._aendern("UPDATE nachrichten SET status=? WHERE id=?",
