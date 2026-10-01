@@ -4,13 +4,13 @@
 
 import { h, ic, knopf, avatar, ersetzen } from "../dom.js";
 import { rufe } from "../bruecke.js";
-import { blatt, toast } from "../blaetter.js";
+import { blatt, toast, bestaetigen } from "../blaetter.js";
 import { zustand } from "../zustand.js";
 
 export function freundHinzufuegen() {
   blatt((zu) => {
-    const feld = h("input.feld.mono", { placeholder: "XXXXX-XXXXX oder VP4C1-…", spellcheck: "false", autocomplete: "off" });
-    const fehler = h("div.beschriftung", { style: { color: "var(--rot)", "min-height": "16px", "margin-top": "6px" } });
+    const feld = h("input.feld.mono", { placeholder: "XXXXX-XXXXX oder VP4C1-…", spellcheck: "false", autocomplete: "off", "aria-label": "ID oder Freundescode" });
+    const fehler = h("div.fehlertext", { role: "alert" });
     const los = async () => {
       if (!feld.value.trim()) return;
       const r = await rufe("kontakt_hinzufuegen", feld.value.trim());
@@ -40,6 +40,20 @@ export async function freundescodeKopieren() {
   toast("Freundescode kopiert – schick ihn deinem Freund");
 }
 
+/**
+ * Kontakt blockieren - mit Rückfrage. Gibt true zurück, wenn es geklappt hat.
+ * Blockierte stehen unter Einstellungen → Sicherheit.
+ */
+export async function kontaktBlockieren(k, { nachfragen = true } = {}) {
+  if (nachfragen && !(await bestaetigen(`${k.name || k.id} blockieren?`,
+    "Du bekommst keine Nachrichten und keine Anfragen mehr von dieser ID. Er oder sie erfährt davon nichts. Aufheben kannst du das unter Einstellungen → Sicherheit.",
+    { ja: "Blockieren", gefahr: true, symbol: "circle-alert" }))) return false;
+  const r = await rufe("kontakt_blockieren", k.id);
+  if (!r.ok) { toast(r.fehler, "fehler"); return false; }
+  toast(`${k.name || k.id} ist blockiert`);
+  return true;
+}
+
 export async function anfragenBlatt() {
   const r = await rufe("anfragen");
   const liste = r.ok ? r.liste : [];
@@ -51,7 +65,11 @@ export async function anfragenBlatt() {
         h("div.titel", h("b", { text: a.name }), h("small.mono", { text: a.id })),
         a.richtung === "raus"
           ? h("span.wert", { text: "wartet …" })
-          : [knopf("Ablehnen", () => antwort(a, false)), knopf("Annehmen", () => antwort(a, true), "primaer")]))
+          : h("div", { style: { display: "flex", gap: "6px", "flex-wrap": "wrap", "justify-content": "flex-end" } },
+              // Die Rückfrage ist ein eigenes Blatt - danach kommt die Liste wieder
+              knopf("Blockieren", async () => { await kontaktBlockieren(a); anfragenBlatt(); }, "leise gefahr-schrift"),
+              knopf("Ablehnen", () => antwort(a, false)),
+              knopf("Annehmen", () => antwort(a, true), "primaer"))))
         : h("div.eintrag", h("div.titel", { style: { color: "var(--text-2)" }, text: "Keine offenen Anfragen." })));
     };
     const antwort = async (a, ja) => {
@@ -88,7 +106,7 @@ export async function sicherheitBlatt(id) {
         : null,
       h("div", { style: { display: "flex", "align-items": "center", gap: "14px", "margin-bottom": "14px" } },
         avatar(k.name, k.farbe, "gross"),
-        h("div", h("h2", { style: { margin: "0" }, text: k.name }), h("div.mono", { style: { color: "var(--text-2)" }, text: k.id }))),
+        h("div", h("h2", { style: { margin: "0" }, text: k.name }), h("div.mono", { style: { color: "var(--text-2)" }, text: k.id, "aria-label": `ID ${k.id}` }))),
       h("p", { text: `Vergleicht diese Nummer – am besten am Telefon oder nebeneinander. Steht bei ${k.name} genau dieselbe, liest niemand mit.` }),
       h("div.sicherheitsnummer", bloecke.map((b) => h("span", { text: b }))),
       h("div.banner", ic("lock"), h("div",

@@ -101,6 +101,7 @@
   --r-mini: 6px;
   --r-blase: 18px;
   --r-blase-eng: 6px;               /* wo zwei Blasen eines Laufs sich treffen */
+  --r-eingabe: 24px;
   --r-kapsel: 9999px;
   /* Apples "kontinuierliche" Ecken: eine Superellipse mit etwas grösserem
      Radius sieht aus wie Apples Radius - die reine Squircle mit gleichem
@@ -131,7 +132,7 @@
   --akzent-schrift: #0066CC;
   --akzent-weich: color-mix(in srgb, var(--akzent) 13%, transparent);
   --akzent-ring: color-mix(in srgb, var(--akzent) 32%, transparent);
-  --akzent-text-weich: color-mix(in srgb, var(--akzent-text) 82%, transparent);
+  --akzent-text-weich: color-mix(in srgb, var(--akzent-text) 94%, transparent);
   --fokus: var(--akzent);
 
   /* --- Hell (Standard) ---------------------------------------------- */
@@ -202,6 +203,11 @@
   --glanz: rgba(255, 255, 255, .50);          /* Lichtkante auf Logos, Kacheln */
   --glanz-zart: rgba(255, 255, 255, .22);
   --schimmer: rgba(255, 255, 255, .45);       /* Lade-Platzhalter */
+  --medium-schleier: rgba(0, 0, 0, .38);      /* Ring über einem ladenden Bild */
+  /* Scroll-Kante: der Verlauf läuft unter Leiste und Eingabe weich aus.
+     Schwarz heisst hier "sichtbar" (Maske), nicht die Farbe Schwarz. */
+  --verlauf-maske: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .25) 10px, #000 72px,
+                   #000 calc(100% - 92px), rgba(0, 0, 0, .25) calc(100% - 14px), transparent 100%);
 
   /* Die Hauptfläche: die Tapete schimmert gedämpft durch */
   --hauptflaeche: rgba(255, 255, 255, .86);

@@ -74,6 +74,44 @@ export function ic(name, klasse = "") {
   return svg;
 }
 
+/** Fortschrittsring (0..1). ring.setzen(anteil) ändert ihn später. */
+export function ring(anteil = 0, klasse = "") {
+  const r = 17, umfang = 2 * Math.PI * r;
+  const svg = document.createElementNS(SVG, "svg");
+  svg.setAttribute("class", ("ring " + klasse).trim());
+  svg.setAttribute("viewBox", "0 0 40 40");
+  svg.setAttribute("role", "progressbar");
+  svg.setAttribute("aria-valuemin", "0");
+  svg.setAttribute("aria-valuemax", "100");
+  const kreis = (k) => {
+    const c = document.createElementNS(SVG, "circle");
+    c.setAttribute("class", k);
+    c.setAttribute("cx", "20"); c.setAttribute("cy", "20"); c.setAttribute("r", String(r));
+    return c;
+  };
+  const spur = kreis("spur");
+  const wert = kreis("wert");
+  wert.setAttribute("stroke-dasharray", String(umfang));
+  svg.append(spur, wert);
+  svg.setzen = (a) => {
+    const x = Math.max(0, Math.min(1, Number(a) || 0));
+    // ein winziger Rest bleibt sichtbar, damit man sieht, dass etwas läuft
+    wert.setAttribute("stroke-dashoffset", String(umfang * (1 - Math.max(x, 0.03))));
+    svg.setAttribute("aria-valuenow", String(Math.round(x * 100)));
+  };
+  svg.setzen(anteil);
+  return svg;
+}
+
+/** Text mit hervorgehobenem Treffer (für die Schnellwahl) - als Knoten. */
+export function hervorheben(text, suche) {
+  const t = String(text || "");
+  const q = (suche || "").trim().toLowerCase();
+  const i = q ? t.toLowerCase().indexOf(q) : -1;
+  if (i < 0) return [t];
+  return [t.slice(0, i), h("mark", { text: t.slice(i, i + q.length) }), t.slice(i + q.length)];
+}
+
 export function leeren(el) {
   while (el.firstChild) el.firstChild.remove();
   return el;

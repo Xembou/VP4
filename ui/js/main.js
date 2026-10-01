@@ -5,13 +5,14 @@
 import { h, ic, ersetzen, leeren } from "./dom.js";
 import { verbinden, rufe, auf, ereignisseStarten, ereignisseStoppen } from "./bruecke.js";
 import { zustand, setzen, erscheinungAnwenden } from "./zustand.js";
-import { toast, blatt, menueSchliessen } from "./blaetter.js";
+import { toast, menueSchliessen, blattOffen } from "./blaetter.js";
 import { Seitenleiste } from "./ansichten/seitenleiste.js";
 import { chatOeffnen, chatSchliessen, chatAktuell } from "./ansichten/chat.js";
 import { werkzeugZeigen } from "./ansichten/werkzeuge.js";
 import { einstellungenZeigen } from "./ansichten/einstellungen.js";
 import { einrichtungZeigen, sperreZeigen } from "./ansichten/einrichtung.js";
 import { freundHinzufuegen } from "./ansichten/kontakte.js";
+import { schnellwahlOeffnen, schnellwahlSchliessen } from "./ansichten/schnellwahl.js";
 
 const app = document.getElementById("app");
 const vollbild = document.getElementById("vollbild");
@@ -30,7 +31,7 @@ async function start() {
   setzen({ einstellungen: s.einstellungen || {}, profil: s.profil });
   erscheinungAnwenden();
   if (s.phase === "einrichten") einrichtungZeigen(vollbild, s, () => appStarten());
-  else if (s.phase === "gesperrt") sperreZeigen(vollbild, s, () => appStarten());
+  else if (s.phase === "gesperrt") { sperreSichtbar = true; sperreZeigen(vollbild, s, () => { sperreSichtbar = false; appStarten(); }); }
   else appStarten();
 }
 
@@ -41,7 +42,7 @@ async function appStarten() {
   leeren(vollbild);
   app.classList.remove("versteckt");
   const aside = h("aside.seitenleiste.glas.bricht", { "aria-label": "Navigation" });
-  haupt = h("main.haupt");
+  haupt = h("main.haupt", { "aria-label": "Inhalt" });
   ersetzen(app, aside, haupt);
   leiste = new Seitenleiste(aside, {
     oeffnen: (id) => unterhaltungOeffnen(id),
@@ -57,30 +58,39 @@ async function appStarten() {
 async function listenLaden() {
   const [u, c, a] = await Promise.all([rufe("unterhaltungen"), rufe("communities"), rufe("anfragen")]);
   setzen({
-    unterhaltungen: u.ok ? u.liste : [],
-    communities: c.ok ? c.liste : [],
-    anfragen: a.ok ? a.liste : [],
+    unterhaltungen: u.ok ? u.liste : zustand.unterhaltungen,
+    communities: c.ok ? c.liste : zustand.communities,
+    anfragen: a.ok ? a.liste : zustand.anfragen,
   });
+  // Die offene Unterhaltung bekommt den frischen Stand für ihren Kopf
+  // (Schlüssel geändert, verifiziert, online) - das Ereignis
+  // "kontakt_geaendert" trägt nur die ID.
+  const offen = chatAktuell();
+  const frisch = offen && finden(offen.u.id);
+  if (frisch) offen.kopfNeu(frisch);
   leiste?.liste();
   leiste?.fussZeichnen();
+  if (zustand.seite === "chat" && !zustand.aktiv) leerZeigen();
 }
 
 let neuLadenGeplant = null;
-function spaeterNeuLaden() {
+function spaeterNeuLaden(ms = 120) {
   clearTimeout(neuLadenGeplant);
-  neuLadenGeplant = setTimeout(listenLaden, 120);
+  neuLadenGeplant = setTimeout(listenLaden, ms);
 }
 
 function leerZeigen() {
-  if (zustand.seite !== "chat" || zustand.aktiv) return;
+  if (!haupt || zustand.seite !== "chat" || zustand.aktiv) return;
   chatSchliessen();
-  ersetzen(haupt, h("div.leer",
-    h("div.kreis", ic("message-circle", "ic-20")),
-    h("h3", { text: zustand.unterhaltungen.length ? "Wähle einen Chat" : "Willkommen bei VP4" }),
-    h("p", { text: zustand.unterhaltungen.length ? "Links stehen deine Chats, Gruppen und Communities." : "Füge Freunde über ihre ID hinzu. Eure Nachrichten sind Ende-zu-Ende verschlüsselt." }),
-    h("div", { style: { display: "flex", gap: "8px", "justify-content": "center", "margin-top": "6px" } },
+  const hatChats = zustand.unterhaltungen.length > 0;
+  ersetzen(haupt, h("div.leer.gross",
+    h("div.kreis", ic("message-circle", "ic-36")),
+    h("h3", { text: hatChats ? "Wähle einen Chat" : "Willkommen bei VP4" }),
+    h("p", { text: hatChats ? "Links stehen deine Chats, Gruppen und Communities." : "Füge Freunde über ihre ID hinzu. Eure Nachrichten sind Ende-zu-Ende verschlüsselt." }),
+    h("div.knoepfe",
       h("button.knopf.primaer", { type: "button", onclick: () => freundHinzufuegen() }, ic("user-plus"), "Freund hinzufügen"),
-      h("button.knopf", { type: "button", onclick: async () => { await navigator.clipboard?.writeText(zustand.profil?.id || ""); toast("Deine ID ist kopiert"); } }, ic("copy"), "Meine ID kopieren"))));
+      h("button.knopf", { type: "button", onclick: async () => { await navigator.clipboard?.writeText(zustand.profil?.id || ""); toast("Deine ID ist kopiert"); } }, ic("copy"), "Meine ID kopieren")),
+    h("p.tipp", "Schnell zu jedem Chat: ", h("kbd", { text: "Strg" }), "+", h("kbd", { text: "K" }))));
 }
 
 function finden(id) {
@@ -91,10 +101,23 @@ async function unterhaltungOeffnen(id) {
   let u = finden(id);
   if (!u) { await listenLaden(); u = finden(id); }
   if (!u) return;
-  setzen({ seite: "chat", aktiv: id });
+  const teil = { seite: "chat", aktiv: id };
+  // Ein Kanal (z. B. aus der Schnellwahl): die Leiste zeigt seine Community
+  if (u.art === "kanal" && u.community_id) Object.assign(teil, { bereich: "communities", communityOffen: u.community_id });
+  else if (u.art !== "kanal" && zustand.bereich === "werkzeuge") teil.bereich = "chats";
+  setzen(teil);
   chatOeffnen(haupt, u);
-  leiste.liste();
-  leiste.fussZeichnen();
+  // Die Ansicht hat sich gemerkt, wie viel ungelesen war ("Neue Nachrichten")
+  u.ungelesen = 0;
+  leiste.alles();
+}
+
+function communityOeffnen(cid) {
+  const c = zustand.communities.find((x) => x.id === cid);
+  setzen({ bereich: "communities", communityOffen: cid });
+  leiste.alles();
+  const erster = c?.kanaele?.[0];
+  if (erster) unterhaltungOeffnen(erster.unterhaltung);
 }
 
 function werkzeugOeffnen(id) {
@@ -112,19 +135,34 @@ function einstellungenOeffnen() {
   leiste.fussZeichnen();
 }
 
+function schnellwahl() {
+  menueSchliessen();
+  schnellwahlOeffnen({
+    chat: (id) => unterhaltungOeffnen(id),
+    community: (id) => communityOeffnen(id),
+    werkzeug: (id) => werkzeugOeffnen(id),
+    freund: () => freundHinzufuegen(),
+    einstellungen: () => einstellungenOeffnen(),
+    idKopieren: async () => { await navigator.clipboard?.writeText(zustand.profil?.id || ""); toast("Deine ID ist kopiert"); },
+    sperren: () => sperren(),
+  });
+}
+
 window.addEventListener("vp4-werkzeug", (e) => werkzeugOeffnen(e.detail));
 window.addEventListener("vp4-sperren", () => sperren());
+window.addEventListener("vp4-bereich", () => leiste?.alles());
 
+/* ------------------------------------------------------------- Sperren */
 async function sperren() {
   const r = await rufe("sperren");
   if (!r.ok) { toast(r.fehler, "fehler"); return; }
   await sperreAnzeigen();
 }
 
-// Nur die Anzeige: Python hat schon gesperrt (automatische Sperre) - hier
-// darf NIE noch einmal rufe("sperren") stehen. Sonst holt die erste
-// Abfrage nach dem Entsperren das alte "gesperrt" ab und sperrt sofort
-// wieder.
+// Nur die Anzeige: Python hat schon gesperrt (automatische Sperre). Hier
+// darf NIE noch einmal rufe("sperren") stehen - sonst holt die erste
+// Abfrage nach dem Entsperren ein altes "gesperrt" ab und sperrt sofort
+// wieder (Befund aus dem Code-Review).
 let sperreSichtbar = false;
 async function sperreAnzeigen() {
   if (sperreSichtbar) return;
@@ -133,6 +171,7 @@ async function sperreAnzeigen() {
   chatSchliessen();
   menueSchliessen();
   schnellwahlSchliessen();
+  setzen({ aktiv: null, seite: "chat" });
   app.classList.add("versteckt");
   const s = await rufe("status");
   sperreZeigen(vollbild, s, () => { sperreSichtbar = false; appStarten(); });
@@ -153,22 +192,37 @@ auf("nachricht_neu", (e) => {
     leiste?.liste();
   } else spaeterNeuLaden();
 });
-for (const typ of ["unterhaltungen_geaendert", "kontakt_anfrage", "community_geaendert", "kontakt_geaendert"]) auf(typ, spaeterNeuLaden);
+for (const typ of ["unterhaltungen_geaendert", "kontakt_anfrage", "community_geaendert", "kontakt_geaendert"]) auf(typ, () => spaeterNeuLaden());
+auf("community_geaendert", () => window.dispatchEvent(new CustomEvent("vp4-community-geaendert")));
+// Wer online ist, ändert sich oft und in Schüben - gesammelt nachladen
+auf("online", () => spaeterNeuLaden(600));
 auf("verbindung", (e) => { setzen({ verbindung: { ...zustand.verbindung, ...e.zustand } }); leiste?.fussZeichnen(); });
 auf("fehler", (e) => toast(e.text, "fehler", 6000));
 auf("hinweis", (e) => toast(e.text, e.art || "info", 5000));
 auf("update_verfuegbar", (e) => updateBanner(e));
 auf("gesperrt", () => sperreAnzeigen());
 auf("gelesen", (e) => { const u = finden(e.unterhaltung); if (u) { u.ungelesen = 0; leiste?.liste(); } });
+// Mitteilung: nur, wenn man den Chat nicht gerade vor sich hat
+auf("mitteilung", (e) => {
+  const vorAugen = e.unterhaltung && zustand.seite === "chat" && zustand.aktiv === e.unterhaltung && document.hasFocus();
+  if (vorAugen) return;
+  toast(e.text || "", "nachricht", 5000, {
+    titel: e.titel || null,
+    aktion: e.unterhaltung ? () => unterhaltungOeffnen(e.unterhaltung) : null,
+  });
+});
 
 /* ------------------------------------------------------ Tastenkürzel */
 document.addEventListener("keydown", (e) => {
-  if (!leiste) return;
+  if (!leiste || app.classList.contains("versteckt")) return;
   const strg = e.ctrlKey || e.metaKey;
-  if (strg && e.key.toLowerCase() === "k") { e.preventDefault(); leiste.sucheFeld.focus(); leiste.sucheFeld.select(); }
-  else if (strg && e.key.toLowerCase() === "n") { e.preventDefault(); freundHinzufuegen(); }
+  const taste = e.key.toLowerCase();
+  if (strg && taste === "k") { e.preventDefault(); schnellwahl(); }
+  else if (blattOffen()) return;       // in einem Blatt gelten nur seine Tasten
+  else if (strg && taste === "n") { e.preventDefault(); freundHinzufuegen(); }
   else if (strg && e.key === ",") { e.preventDefault(); einstellungenOeffnen(); }
-  else if (strg && e.key.toLowerCase() === "l") { e.preventDefault(); sperren(); }
+  else if (strg && taste === "l") { e.preventDefault(); sperren(); }
+  else if (strg && taste === "f" && zustand.seite === "chat" && chatAktuell()) { e.preventDefault(); chatAktuell().suchen(); }
   else if (e.altKey && (e.key === "ArrowDown" || e.key === "ArrowUp")) {
     e.preventDefault();
     const liste = zustand.unterhaltungen.filter((u) => u.art !== "kanal");
@@ -196,6 +250,6 @@ window.addEventListener("focus", () => {
 document.addEventListener("contextmenu", (e) => {
   if (!e.target.closest("input, textarea, .waehlbar, .verlauf")) e.preventDefault();
 });
-window.addEventListener("blur", menueSchliessen);
+window.addEventListener("blur", () => menueSchliessen());
 
 start();
