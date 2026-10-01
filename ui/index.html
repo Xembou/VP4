@@ -6,9 +6,12 @@
   <!-- Strenge Regeln, was die Seite laden und ausführen darf. Hinter der
        Oberfläche hängt Python mit allen Schlüsseln - ein eingeschleustes
        Skript in einer Chatnachricht darf hier nichts ausrichten können.
-       Deshalb: kein Inline-Skript, nichts von fremden Servern. -->
+       Deshalb: kein Inline-Skript, nichts von fremden Servern.
+       'unsafe-eval' braucht pywebview: Es baut die Brücke zu Python mit
+       new Function(). Das Einfallstor bei Chat-Programmen ist eingeschleustes
+       HTML - und das gibt es hier nicht (kein innerHTML, ein Test wacht). -->
   <meta http-equiv="Content-Security-Policy"
-        content="default-src 'self'; script-src 'self'; style-src 'self'; img-src 'self' data: blob: http://127.0.0.1:*; media-src 'self' blob: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
+        content="default-src 'self'; script-src 'self' 'unsafe-eval'; style-src 'self'; img-src 'self' data: blob: http://127.0.0.1:*; media-src 'self' blob: http://127.0.0.1:*; connect-src 'self' http://127.0.0.1:*; font-src 'self'; object-src 'none'; base-uri 'none'; form-action 'none'">
   <title>VP4</title>
   <link rel="stylesheet" href="css/tokens.css">
   <link rel="stylesheet" href="css/glass.css">

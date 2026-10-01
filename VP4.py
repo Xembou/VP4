@@ -2,146 +2,171 @@
 # -*- coding: utf-8 -*-
 """
 =====================================================================
- Verschlüsselungs Programm 4.0  (VP4)
+ VP4 5 - verschlüsselter Chat mit Werkzeugkasten
 =====================================================================
 Starten mit:      python VP4.py
+Im Browser:       python VP4.py --browser    (zum Entwickeln)
 
 Was das Programm kann:
 
-  1) Texte ver- und entschlüsseln - mit 13 Verfahren, von Caesar zum
-     Ausprobieren bis AES-256 und ChaCha20 für echten Schutz
-  2) Ganze Dateien und Ordner verschlüsseln - auch sehr grosse, sie
-     wandern blockweise durch und passen nie ganz in den Speicher
-  3) Eigene Schlüssel speichern und verwalten, geschützt durch ein
-     Master-Passwort
-  4) Texte signieren (beweist, dass etwas von dir kommt) und
-     Prüfsummen berechnen
-  5) Schlüssel als Notiz in einen Obsidian-Vault schreiben und von
-     dort wieder einlesen
-  6) Im eigenen WLAN chatten und Bilder/Videos schicken - direkt
-     zwischen den Rechnern, ohne Server und ohne Internet
-  7) Wahlweise über einen Discord-Kanal chatten, wenn der Freund nicht
-     im selben WLAN sitzt. Verschlüsselt wird genauso; Discord bekommt
-     nur den Geheimtext zu sehen. Dafür braucht es zusätzlich
-     "pip install discord.py" - ohne das Paket läuft alles andere
-     weiter, nur dieser eine Weg nicht.
-  8) Gruppen: eine aufmachen, den Code weitergeben, und alle, die ihn
-     haben, schreiben miteinander - ohne dass sich jemand vorher
-     kennen muss.
+  1) Chatten mit Freunden - Ende-zu-Ende verschlüsselt. Jede
+     Installation hat eine ID, die aus ihren eigenen Schlüsseln
+     berechnet wird. Freund hinzufügen, er nimmt an, fertig: Die
+     Schlüssel tauschen sich von selbst aus.
+  2) Gruppen und Communities mit Kanälen wie bei Discord - beitreten
+     per Code.
+  3) Bilder, Videos, Dateien und Sprachnachrichten, Antworten,
+     Reaktionen, Bearbeiten und Löschen.
+  4) Der Weg: im selben WLAN direkt, sonst über einen Discord-Kanal.
+     Discord bekommt dabei nur Geheimtext zu sehen.
+  5) Werkzeuge: Texte, Dateien und Ordner verschlüsseln (auch
+     Post-Quanten und age), Schlüsselbund, Signaturen, Prüfsummen,
+     Obsidian.
 
-Ver- und Entschlüsseln passiert vollständig auf deinem Rechner, und
-zur Laufzeit wird keine KI gebraucht. Ins Internet geht nur, was du
-selbst über den Chat verschickst - und auch das nur verschlüsselt.
+Zur Laufzeit wird keine KI gebraucht, und es gibt keinen eigenen Server.
 
 
 DIE DATEIEN
 ------------
-  VP4.py        diese Datei - startet nur das Programm
-  gui.py        die Oberfläche (CustomTkinter, mit Dark Mode)
-  krypto.py     alle Ver- und Entschlüsselungsverfahren
-  dateien.py    Dateien und Ordner als .vp4-Container
-  speicher.py   Schlüsselspeicher, Einstellungen, Obsidian
-  chat.py       der LAN-Chat
-  transport.py  wählt den Weg: WLAN, Discord oder beides
-  discord_transport.py   der Chat über einen Discord-Kanal
-  discord_konfig.py      Platzhalter für den eingebauten Bot-Zugang
-  test_vp4.py   Selbsttest - nach Änderungen ausführen!
-
-Die Aufteilung gibt es, weil alles zusammen in einer Datei bei über
-3000 Zeilen unübersichtlich wird. Für die .exe macht das keinen
-Unterschied, PyInstaller packt weiterhin alles in eine Datei.
+  VP4.py         diese Datei - prüft die Pakete und öffnet das Fenster
+  api.py         was die Oberfläche von Python wollen darf
+  dienst.py      Tresor, Datenbank, Bote, Netz, Versand
+  ereignisse.py  Warteschlange zur Oberfläche, Zeitplaner
+  kern/          die reine Logik (Verschlüsselung, Tresor, Nachrichten)
+  netz/          WLAN, Discord, Update-Prüfung
+  ui/            die Oberfläche (HTML/CSS/JavaScript, ohne Build-Schritt)
+  test_vp4.py    Selbsttest - nach Änderungen ausführen!
 
 
-VORAUSSETZUNGEN
-----------------
-  - Python 3.9 oder neuer
-  - Einmalig installieren:   pip install cryptography argon2-cffi customtkinter
-  - Für den Chat über Discord zusätzlich:   pip install discord.py
-
-
-EINE .EXE DARAUS MACHEN (damit Freunde kein Python brauchen)
--------------------------------------------------------------
-  1) pip install pyinstaller
-  2) pyinstaller --onefile --noconsole --name "VP4" VP4.py
-  3) Die fertige Datei liegt danach in "dist" und kann verschickt und
-     doppelgeklickt werden.
-
-
-WICHTIG - EHRLICHE HINWEISE
-----------------------------
- - Das ist ein privates Programm, kein geprüftes Sicherheitsprodukt.
-   Für wirklich Wichtiges (Bankdaten, Passwörter für echte Konten)
-   nicht als einzige Absicherung verwenden.
- - Das Master-Passwort wird nirgends gespeichert. Wer es vergisst,
-   kommt an die gespeicherten Schlüssel nicht mehr heran - es gibt
-   keine Wiederherstellung und keine Hintertür. Das ist Absicht:
-   jeder Weg zurück wäre auch ein Weg für jemand anderen.
- - Die klassischen Verfahren (Caesar, Vigenère, Playfair, ROT13,
-   Atbash, Morse, XOR, Base64, Rail-Fence) sind NICHT sicher. Sie
-   sind zum Ausprobieren da. In der App steht das an jedem Verfahren.
- - Beim Export nach Obsidian stehen die Schlüssel im Klartext in der
-   Notiz. Wird der Vault synchronisiert, werden sie mitsynchronisiert.
- - Der Chat benutzt, wenn nichts anderes eingetragen ist, den in die
-   .exe eingebauten Schlüssel. Der schützt gegen Discord und gegen
-   Fremde, aber nicht untereinander: Wer dieselbe .exe hat, kann alles
-   im Kanal mitlesen. Für ein Gespräch unter vier Augen trägt man für
-   den Freund einen eigenen Schlüssel ein.
- - Dasselbe gilt für Gruppen: Wer den Einladungscode hat, liest mit -
-   auch Älteres, das noch im Kanal steht.
- - Beim Verbindungsaufbau wird nur behauptet, wer man ist - nachgeprüft
-   wird es nicht. Wer im selben WLAN oder im selben Discord-Kanal ist,
-   könnte sich als ein Freund ausgeben.
+EHRLICHE HINWEISE
+------------------
+ - Ein privates Hobby-Projekt, kein geprüftes Sicherheitsprodukt.
+ - Geschützt ist der INHALT jeder Nachricht. Wer wann wem schreibt,
+   steht offen im Discord-Kanal. Und noch ohne Forward Secrecy: Wer
+   später dein Gerät knackt, kann auch alte Nachrichten öffnen.
+ - Das Master-Passwort hat keine Wiederherstellung. Windows kann es
+   sich auf Wunsch merken (an dein Benutzerkonto gebunden).
+ - Der eingebaute Discord-Zugang steckt in der .exe und lässt sich
+   herausholen. Nachrichten bleiben trotzdem geheim; stören könnte man
+   den Bot aber. Dann hilft eine neue Version von GitHub.
 =====================================================================
 """
 
+import logging
+import os
 import sys
+from pathlib import Path
 
 
-def _abhaengigkeit_fehlt(paket: str, fehler: str):
-    """Zeigt eine verständliche Meldung, wenn ein Paket fehlt.
+def _meldung(titel: str, text: str):
+    """Eine Meldung, die man auch ohne Konsole sieht (die .exe hat keine)."""
+    if sys.platform == "win32":
+        try:
+            import ctypes
+            ctypes.windll.user32.MessageBoxW(None, text, titel, 0x10)
+            return
+        except Exception:
+            pass
+    print(f"{titel}\n\n{text}", file=sys.stderr)
 
-    Möglichst als Fenster - in der .exe gibt es keine Konsole, dort würde
-    eine Textausgabe niemand sehen.
-    """
-    text = (f"Das Python-Paket '{paket}' wird gebraucht, ist aber nicht "
-            f"installiert.\n\n"
-            f"Bitte einmalig in einem Terminal ausführen:\n\n"
-            f"    pip install cryptography argon2-cffi customtkinter\n\n"
-            f"(Technischer Fehler: {fehler})")
+
+def _pakete_pruefen():
+    fehlt = []
+    for modul, paket in (("cryptography", "cryptography"), ("argon2", "argon2-cffi"),
+                         ("webview", "pywebview")):
+        try:
+            __import__(modul)
+        except ImportError:
+            fehlt.append(paket)
+    if fehlt:
+        _meldung("Ein Paket fehlt",
+                 "VP4 braucht noch: " + ", ".join(fehlt) + "\n\nBitte einmalig ausführen:\n\n"
+                 "    pip install -r requirements.txt")
+        sys.exit(1)
+
+
+def _ui_ordner() -> Path:
+    # In der .exe entpackt PyInstaller alles nach sys._MEIPASS
+    basis = Path(getattr(sys, "_MEIPASS", Path(__file__).resolve().parent))
+    return basis / "ui"
+
+
+def _protokoll_einrichten():
+    from kern import speicher
     try:
-        import tkinter as tk
-        from tkinter import messagebox
-        wurzel = tk.Tk()
-        wurzel.withdraw()
-        messagebox.showerror("Ein Paket fehlt", text)
+        speicher.DATA_DIR.mkdir(parents=True, exist_ok=True)
+        logging.basicConfig(
+            filename=str(speicher.DATA_DIR / "vp4.log"), level=logging.INFO,
+            format="%(asctime)s %(levelname)s %(name)s: %(message)s", encoding="utf-8")
+    except OSError:
+        logging.basicConfig(level=logging.INFO)
+
+
+def _fenster_stil(fenster, dunkel: bool):
+    """Windows 11: dunkle Titelleiste und Mica-Hintergrund passend zur Seite."""
+    if sys.platform != "win32":
+        return
+    try:
+        import ctypes
+        hwnd = fenster.native.Handle.ToInt64()
+        wert = ctypes.c_int(1 if dunkel else 0)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(wert), ctypes.sizeof(wert))
+        mica = ctypes.c_int(2)
+        ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 38, ctypes.byref(mica), ctypes.sizeof(mica))
     except Exception:
-        print(text)
-    sys.exit(1)
+        logging.getLogger("vp4").debug("Fensterstil ging nicht", exc_info=True)
 
 
 def main():
-    if sys.version_info < (3, 9):
-        print("VP4 braucht Python 3.9 oder neuer. "
-              f"Gefunden: {sys.version.split()[0]}")
-        sys.exit(1)
+    _pakete_pruefen()
+    _protokoll_einrichten()
 
+    from api import VP4Api
+    from dienst import VP4Dienst
+
+    dienst = VP4Dienst()
+    dienst.start()
+    fenster_ref = {}
+    api = VP4Api(dienst, lambda: fenster_ref.get("fenster"))
+
+    if "--browser" in sys.argv:
+        import time
+        import dev_server
+        _, adresse = dev_server.starten(api)
+        print(f"VP4 läuft im Browser: {adresse}\nBeenden mit Strg+C.")
+        try:
+            while True:
+                time.sleep(1)
+        except KeyboardInterrupt:
+            dienst.beenden()
+        return
+
+    import webview
+    dunkel = dienst.einst.get("design") == "dark"
     try:
-        import cryptography            # noqa: F401
-    except ImportError as e:
-        _abhaengigkeit_fehlt("cryptography", e)
-
+        fenster = webview.create_window(
+            "VP4", url=str(_ui_ordner() / "index.html"), js_api=api,
+            width=1280, height=820, min_size=(960, 620),
+            background_color="#0B0D12" if dunkel else "#EEF1F8", text_select=True)
+    except Exception as e:
+        _meldung("VP4 startet nicht", f"Das Fenster ließ sich nicht öffnen:\n\n{e}")
+        raise
+    fenster_ref["fenster"] = fenster
+    fenster.events.shown += lambda: _fenster_stil(fenster, dunkel)
+    fenster.events.closed += lambda: dienst.beenden()
     try:
-        import argon2                  # noqa: F401
-    except ImportError as e:
-        _abhaengigkeit_fehlt("argon2-cffi", e)
-
-    try:
-        import customtkinter           # noqa: F401
-    except ImportError as e:
-        _abhaengigkeit_fehlt("customtkinter", e)
-
-    import gui
-    gui.starten()
+        webview.start(gui="edgechromium" if sys.platform == "win32" else None,
+                      private_mode=False, storage_path=str(dienst.ordner / "webview"),
+                      debug=bool(os.environ.get("VP4_DEBUG")))
+    except Exception as e:
+        _meldung("VP4 startet nicht",
+                 "Das Fenster braucht die Microsoft Edge WebView2-Laufzeit. Auf Windows 11 ist sie "
+                 "eingebaut, auf manchen Windows-10-PCs fehlt sie. Hier gibt es sie kostenlos:\n\n"
+                 "https://developer.microsoft.com/microsoft-edge/webview2/\n\n"
+                 f"(Technischer Fehler: {e})")
+        raise
+    finally:
+        dienst.beenden()
 
 
 if __name__ == "__main__":

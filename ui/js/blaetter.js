@@ -6,6 +6,7 @@ import { h, ic, knopf } from "./dom.js";
 
 /* ------------------------------------------------------------- Hinweise */
 export function toast(text, art = "ok", dauerMs = 3200) {
+  if (!text) return;   // z. B. ein abgebrochener Dateidialog
   const symbol = art === "fehler" ? "circle-alert" : art === "info" ? "info" : "circle-check";
   const el = h("div.toast.glas." + art, { role: "status" }, ic(symbol), h("span", { text }));
   document.getElementById("toasts").append(el);
