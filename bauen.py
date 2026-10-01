@@ -5,6 +5,11 @@
  bauen.py - macht aus dem Projekt eine fertige VP4.exe
 =====================================================================
     python bauen.py
+    python bauen.py --ohne-test        Selbsttest überspringen (der Workflow
+                                       hat ihn schon im Job davor gemacht)
+    python bauen.py --ohne-probelauf   die .exe nicht zur Probe starten
+    python bauen.py --nur-befehl       nur den PyInstaller-Befehl zeigen,
+                                       nichts bauen (geht auch unter Linux)
 
 Danach liegt die fertige Datei unter  dist/VP4.exe  und kann verschickt
 oder bei GitHub hochgeladen werden. Deine Freunde brauchen dafür weder
@@ -15,7 +20,8 @@ Was das Skript macht:
   2. lässt den Selbsttest laufen (bei Fehlern wird nicht gebaut)
   3. erzeugt das Icon neu
   4. baut die .exe
-  5. prüft, dass die entstandene Datei auch wirklich startet
+  5. startet die entstandene Datei einmal wirklich: Fenster auf, Oberfläche
+     da, Fenster zu (werkzeuge/exe_probelauf.py, VP4_SELBSTTEST_START)
 
 Warum ein Skript und kein einzelner Befehl: Die Oberfläche (ui/) muss
 mit in die .exe, argon2 und discord.py bringen Teile mit, die PyInstaller
@@ -26,10 +32,10 @@ ohne Konsole sieht man nicht einmal warum.
 =====================================================================
 """
 
+import argparse
 import os
 import shutil
 import subprocess
-import tempfile
 import sys
 import time
 from pathlib import Path
@@ -95,11 +101,9 @@ def schritt_icon():
     return ORDNER / "vp4.ico"
 
 
-def schritt_bauen(icon):
-    melde("Schritt 4/5: .exe bauen (das dauert ein paar Minuten)")
-    for ordner in ("build", "dist"):
-        shutil.rmtree(ORDNER / ordner, ignore_errors=True)
-
+def pyinstaller_befehl(icon):
+    """Der vollständige PyInstaller-Aufruf - eigene Funktion, damit man ihn
+    mit --nur-befehl ansehen kann, ohne zu bauen."""
     befehl = [
         sys.executable, "-m", "PyInstaller",
         "--onefile",           # alles in eine einzige Datei
@@ -124,11 +128,18 @@ def schritt_bauen(icon):
     for weg in ("tkinter", "customtkinter", "PyQt5", "PyQt6", "PySide2", "PySide6",
                 "gi", "numpy", "matplotlib", "playwright"):
         befehl += ["--exclude-module", weg]
-    ]
     if icon:
         befehl += ["--icon", str(icon)]
     befehl.append(str(ORDNER / "VP4.py"))
+    return befehl
 
+
+def schritt_bauen(icon):
+    melde("Schritt 4/5: .exe bauen (das dauert ein paar Minuten)")
+    for ordner in ("build", "dist"):
+        shutil.rmtree(ORDNER / ordner, ignore_errors=True)
+
+    befehl = pyinstaller_befehl(icon)
     start = time.time()
     ergebnis = subprocess.run(befehl, cwd=ORDNER, capture_output=True,
                               text=True, encoding="utf-8", errors="replace")
@@ -149,52 +160,64 @@ def schritt_bauen(icon):
 
 def schritt_probelauf(exe):
     melde("Schritt 5/5: Probelauf")
-    # Die .exe kurz starten und schauen, ob sie am Leben bleibt. Startet sie
-    # gar nicht, ist sie sofort wieder weg - genau das passiert z.B., wenn
-    # ui/ fehlt oder WebView2 nicht startet.
-    # In einem Wegwerf-Ordner, nicht in dist/. VP4 legt seinen Datenordner
-    # immer NEBEN die .exe - der Probelauf würde sonst ein leeres
-    # vp4_daten mit eigener Chat-ID in dist/ hinterlassen, das man beim
-    # Verschicken versehentlich mitgibt. Nebenbei ist das der ehrlichere
-    # Test: genau so kommt die Datei bei einem Freund an, ohne alles.
-    wegwerf = Path(tempfile.mkdtemp(prefix="vp4_probelauf_"))
-    probe_exe = wegwerf / exe.name
-    shutil.copy2(exe, probe_exe)
-
-    lauf = subprocess.Popen([str(probe_exe)], cwd=wegwerf)
-    time.sleep(9)
-    laeuft = lauf.poll() is None
-    if laeuft:
-        print("    [OK] Die .exe startet und läuft.")
-        lauf.terminate()
-        try:
-            lauf.wait(timeout=5)
-        except subprocess.TimeoutExpired:
-            lauf.kill()
-        shutil.rmtree(wegwerf, ignore_errors=True)
-    else:
-        shutil.rmtree(wegwerf, ignore_errors=True)
-        print(f"    [FEHLER] Die .exe hat sich sofort beendet "
-              f"(Rückgabewert {lauf.returncode}).")
+    # Die .exe wirklich starten. Kennt VP4.py den Selbsttest
+    # (VP4_SELBSTTEST_START), öffnet sie ihr Fenster, prüft, ob die
+    # Oberfläche steht, und schliesst sich wieder. Sonst bleibt nur der
+    # alte Weg: läuft sie nach 9 Sekunden noch? Startet sie gar nicht, ist
+    # sie sofort wieder weg - genau das passiert z.B., wenn ui/ fehlt oder
+    # WebView2 nicht startet.
+    # Gestartet wird in einem Wegwerf-Ordner, nicht in dist/: VP4 legt
+    # seinen Datenordner immer NEBEN die .exe - der Probelauf würde sonst
+    # ein vp4_daten mit eigener ID in dist/ hinterlassen, das man beim
+    # Verschicken versehentlich mitgibt.
+    sys.path.insert(0, str(ORDNER / "werkzeuge"))
+    import exe_probelauf
+    if not exe_probelauf.selbsttest_bekannt():
+        print("    (VP4.py kennt VP4_SELBSTTEST_START nicht - nur der 9-Sekunden-Test)")
+    laeuft = exe_probelauf.probelauf(exe)
+    if not laeuft:
         print("    Zum Nachsehen einmal ohne --noconsole bauen, dann wird der")
         print("    Fehler im Konsolenfenster sichtbar.")
     return laeuft
 
 
-def main():
+def main(argumente=None):
+    teile = argparse.ArgumentParser(description="Baut VP4.exe (dist/VP4.exe).")
+    teile.add_argument("--ohne-test", action="store_true",
+                       help="Selbsttest (Schritt 2) überspringen")
+    teile.add_argument("--ohne-probelauf", action="store_true",
+                       help="Probelauf der .exe (Schritt 5) überspringen")
+    teile.add_argument("--nur-befehl", action="store_true",
+                       help="nur den PyInstaller-Befehl zeigen, nichts bauen")
+    a = teile.parse_args(argumente)
+
+    if a.nur_befehl:
+        icon = ORDNER / "vp4.ico"
+        befehl = pyinstaller_befehl(icon if icon.exists() else None)
+        if sys.platform == "win32":
+            print(subprocess.list2cmdline(befehl))
+        else:
+            import shlex
+            print(shlex.join(befehl))
+        return 0
+
     print("=" * 64)
     print(" VP4 bauen")
     print("=" * 64)
 
     if not schritt_pakete():
         return 1
-    if not schritt_test():
+    if a.ohne_test:
+        melde("Schritt 2/5: Selbsttest - übersprungen (--ohne-test)")
+    elif not schritt_test():
         return 1
     icon = schritt_icon()
     exe = schritt_bauen(icon)
     if exe is None:
         return 1
-    if not schritt_probelauf(exe):
+    if a.ohne_probelauf:
+        melde("Schritt 5/5: Probelauf - übersprungen (--ohne-probelauf)")
+    elif not schritt_probelauf(exe):
         return 1
 
     print("\n" + "=" * 64)
@@ -210,4 +233,6 @@ def main():
 
 
 if __name__ == "__main__":
+    if hasattr(sys.stdout, "reconfigure"):
+        sys.stdout.reconfigure(encoding="utf-8", errors="replace")
     sys.exit(main())

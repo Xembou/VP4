@@ -79,18 +79,12 @@ jobs:
       - name: Icon erzeugen
         run: python icon_erzeugen.py
 
+      # Derselbe Befehl wie lokal (bauen.py) - eine zweite, abweichende
+      # Liste von PyInstaller-Schaltern hier wäre ein Fehler, der nur beim
+      # Veröffentlichen auffällt. Den Probelauf macht pruefen.yml OHNE
+      # Token; eine .exe mit eingebautem Zugang soll in der CI nicht starten.
       - name: VP4.exe bauen
-        run: >
-          pyinstaller --onefile --noconsole --name VP4 --icon vp4.ico
-          --add-data "ui;ui"
-          --collect-all argon2 --hidden-import _argon2_cffi_bindings
-          --collect-all discord --collect-all pyrage
-          --collect-submodules netz --collect-submodules kern
-          --exclude-module tkinter --exclude-module customtkinter
-          --exclude-module PyQt5 --exclude-module PyQt6
-          --exclude-module PySide2 --exclude-module PySide6
-          --exclude-module numpy --exclude-module matplotlib --exclude-module playwright
-          --noconfirm VP4.py
+        run: python bauen.py --ohne-test --ohne-probelauf
 
       - name: Nachsehen, ob die .exe entstanden ist
         run: |

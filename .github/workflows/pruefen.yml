@@ -1,0 +1,226 @@
+# =====================================================================
+#  Prüft VP4 auf echtem Windows - bei jedem Push und jedem Pull Request
+# =====================================================================
+#
+# Hier in der Entwicklung gibt es nur Linux. DPAPI, WebView2, pythonnet,
+# die Windows-Sockets und die .exe selbst lassen sich nur auf Windows
+# prüfen - das machen GitHubs Windows-Rechner:
+#
+#   test-windows   Selbsttest auf Windows (tests/test_windows.py prüft
+#                  DPAPI, WebView2, WLAN-Sockets, Medien-Server echt),
+#                  mit Oberflächenprüfung, wenn Playwright sich
+#                  installieren lässt. Screenshots als Artefakt.
+#   test-linux     derselbe Selbsttest ohne Oberfläche, als schnelles Signal
+#   exe-bauen      baut VP4.exe mit bauen.py und startet sie einmal
+#                  wirklich: Fenster auf, Oberfläche da, Fenster zu
+#                  (VP4_SELBSTTEST_START). Die .exe gibt es 7 Tage lang
+#                  als Artefakt "VP4-exe-test".
+#
+# KEINE SECRETS. Diese .exe ist nur zum Ausprobieren und wird OHNE
+# eingebauten Discord-Zugang gebaut. Veröffentlicht wird ausschliesslich
+# über release.yml (Tag v*).
+# =====================================================================
+
+name: Auf Windows prüfen
+
+on:
+  push:
+    branches:
+      - "**"           # jeder Zweig; Tags baut release.yml
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Ein neuer Push auf denselben Zweig bricht den alten Lauf ab
+concurrency:
+  group: pruefen-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  PYTHONIOENCODING: utf-8      # Umlaute im Protokoll lesbar (open() bleibt unberührt)
+  PIP_DISABLE_PIP_VERSION_CHECK: "1"
+
+jobs:
+  test-windows:
+    runs-on: windows-latest
+    timeout-minutes: 40
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Pakete installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      # Ohne die Laufzeit öffnet VP4 kein Fenster. Auf Windows 11 ist sie
+      # eingebaut; auf GitHubs Windows Server nicht unbedingt.
+      - name: WebView2-Laufzeit sicherstellen
+        run: |
+          $guid = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+          function WebView2-Version {
+            foreach ($s in @("HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$guid",
+                             "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$guid",
+                             "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$guid")) {
+              $pv = (Get-ItemProperty -Path $s -Name pv -ErrorAction SilentlyContinue).pv
+              if ($pv -and $pv -ne "0.0.0.0") { return $pv }
+            }
+            return $null
+          }
+          $pv = WebView2-Version
+          if (-not $pv) {
+            Write-Output "WebView2 fehlt - wird installiert."
+            Invoke-WebRequest "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:RUNNER_TEMP\webview2.exe"
+            Start-Process "$env:RUNNER_TEMP\webview2.exe" -ArgumentList "/silent", "/install" -Wait
+            $pv = WebView2-Version
+          }
+          if (-not $pv) { throw "WebView2-Laufzeit liess sich nicht installieren" }
+          Write-Output "WebView2-Laufzeit: $pv"
+
+      # Nur zur Auskunft: reserviert Windows Bereiche um 41230/41231?
+      - name: Reservierte Portbereiche anzeigen
+        continue-on-error: true
+        run: |
+          netsh int ipv4 show excludedportrange protocol=tcp
+          netsh int ipv4 show excludedportrange protocol=udp
+
+      # Darf scheitern - dann läuft der Selbsttest eben ohne Oberfläche.
+      - name: Playwright installieren (für die Oberflächenprüfung)
+        id: pw
+        continue-on-error: true
+        run: |
+          pip install playwright
+          if ($LASTEXITCODE -ne 0) { exit 1 }
+          python -m playwright install chromium
+
+      - name: Selbsttest
+        env:
+          # leer = mit Oberfläche (Chromium + Screenshots), "1" = ohne
+          VP4_TEST_OHNE_GUI: ${{ steps.pw.outcome != 'success' && '1' || '' }}
+        run: |
+          if ($env:VP4_TEST_OHNE_GUI) { Write-Output "Ohne Oberflächenprüfung (Playwright fehlt)." }
+          else { Write-Output "Mit Oberflächenprüfung." }
+          python test_vp4.py
+
+      - name: Screenshots hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: screenshots-windows
+          path: tests/screenshots/
+          if-no-files-found: ignore
+          retention-days: 7
+
+  test-linux:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Pakete installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+
+      - name: Selbsttest (ohne Oberfläche)
+        env:
+          VP4_TEST_OHNE_GUI: "1"
+        run: python test_vp4.py
+
+      - name: bauen.py setzt den PyInstaller-Befehl zusammen
+        run: python bauen.py --nur-befehl
+
+  exe-bauen:
+    needs: test-windows
+    runs-on: windows-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Quelltext holen
+        uses: actions/checkout@v4
+
+      - name: Python einrichten
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.13"
+
+      - name: Pakete installieren
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt pyinstaller
+
+      - name: WebView2-Laufzeit sicherstellen
+        run: |
+          $guid = "{F3017226-FE2A-4295-8BDF-00C3A9A7E4C5}"
+          function WebView2-Version {
+            foreach ($s in @("HKLM:\SOFTWARE\WOW6432Node\Microsoft\EdgeUpdate\Clients\$guid",
+                             "HKLM:\SOFTWARE\Microsoft\EdgeUpdate\Clients\$guid",
+                             "HKCU:\Software\Microsoft\EdgeUpdate\Clients\$guid")) {
+              $pv = (Get-ItemProperty -Path $s -Name pv -ErrorAction SilentlyContinue).pv
+              if ($pv -and $pv -ne "0.0.0.0") { return $pv }
+            }
+            return $null
+          }
+          $pv = WebView2-Version
+          if (-not $pv) {
+            Write-Output "WebView2 fehlt - wird installiert."
+            Invoke-WebRequest "https://go.microsoft.com/fwlink/p/?LinkId=2124703" -OutFile "$env:RUNNER_TEMP\webview2.exe"
+            Start-Process "$env:RUNNER_TEMP\webview2.exe" -ArgumentList "/silent", "/install" -Wait
+            $pv = WebView2-Version
+          }
+          if (-not $pv) { throw "WebView2-Laufzeit liess sich nicht installieren" }
+          Write-Output "WebView2-Laufzeit: $pv"
+
+      # Sicherheitsnetz: In diese .exe darf kein Zugang geraten.
+      - name: Nachsehen, dass kein Discord-Zugang drinsteht
+        run: python -c "import discord_konfig as k; assert not k.BOT_TOKEN.strip() and not str(k.KANAL_IDS).strip(), 'discord_konfig.py ist nicht leer'; print('discord_konfig.py ist leer - gut so.')"
+
+      # Der Selbsttest lief schon in test-windows; der Probelauf kommt
+      # als eigener Schritt, damit sein Protokoll hochgeladen werden kann.
+      - name: VP4.exe bauen
+        run: python bauen.py --ohne-test --ohne-probelauf
+
+      - name: Grösse der .exe
+        run: |
+          if (-not (Test-Path dist/VP4.exe)) { throw "dist/VP4.exe fehlt" }
+          $mb = [math]::Round((Get-Item dist/VP4.exe).Length / 1MB, 1)
+          Write-Output "VP4.exe: $mb MB"
+          Write-Output "### VP4.exe: $mb MB" >> $env:GITHUB_STEP_SUMMARY
+
+      - name: Probelauf - Fenster öffnen, Oberfläche prüfen, schliessen
+        run: python werkzeuge/exe_probelauf.py dist/VP4.exe --protokoll probelauf
+
+      - name: VP4.exe zum Ausprobieren hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: VP4-exe-test
+          path: dist/VP4.exe
+          if-no-files-found: warn
+          retention-days: 7
+
+      - name: Protokoll des Probelaufs hochladen
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: probelauf-protokoll
+          path: |
+            probelauf/
+            build/VP4/warn-VP4.txt
+          if-no-files-found: ignore
+          retention-days: 7
