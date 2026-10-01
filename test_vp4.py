@@ -1890,6 +1890,28 @@ def test_oberflaeche():
 #  Hauptprogramm
 # ---------------------------------------------------------------------------
 
+def weitere_pruefungen():
+    """Führt alle Prüfmodule aus tests/ aus (tests/test_*.py).
+
+    Jedes Modul hat eine Funktion pruefen(R, hilfen) und meldet seine
+    Ergebnisse über dasselbe R wie hier - so bleibt `python test_vp4.py`
+    der eine Befehl für alles, und die Datei hier wächst nicht weiter.
+    Stürzt ein Modul ab, zählt das als Fehlschlag statt alles abzubrechen.
+    """
+    import importlib.util
+    hilfen = {"wirft_valueerror": _wirft_valueerror, "wirft_fehler": _wirft_fehler}
+    for pfad in sorted((Path(__file__).resolve().parent / "tests").glob("test_*.py")):
+        print(f"\n=== {pfad.stem} ===")
+        try:
+            spec = importlib.util.spec_from_file_location(pfad.stem, pfad)
+            modul = importlib.util.module_from_spec(spec)
+            spec.loader.exec_module(modul)
+            modul.pruefen(R, hilfen)
+        except Exception as e:
+            traceback.print_exc()
+            R.fehlschlag(f"{pfad.name} lief nicht durch", e)
+
+
 def main():
     print("=" * 64)
     print(" Selbsttest für Verschlüsselungs Programm 4.0")
@@ -1907,6 +1929,7 @@ def main():
     test_gruppen()
     test_verfahrensliste()
     test_oberflaeche()
+    weitere_pruefungen()
 
     print("\n" + "=" * 64)
     if R.fehler:
