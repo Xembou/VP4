@@ -118,11 +118,24 @@ window.addEventListener("vp4-sperren", () => sperren());
 async function sperren() {
   const r = await rufe("sperren");
   if (!r.ok) { toast(r.fehler, "fehler"); return; }
+  await sperreAnzeigen();
+}
+
+// Nur die Anzeige: Python hat schon gesperrt (automatische Sperre) - hier
+// darf NIE noch einmal rufe("sperren") stehen. Sonst holt die erste
+// Abfrage nach dem Entsperren das alte "gesperrt" ab und sperrt sofort
+// wieder.
+let sperreSichtbar = false;
+async function sperreAnzeigen() {
+  if (sperreSichtbar) return;
+  sperreSichtbar = true;
   ereignisseStoppen();
   chatSchliessen();
+  menueSchliessen();
+  schnellwahlSchliessen();
   app.classList.add("versteckt");
   const s = await rufe("status");
-  sperreZeigen(vollbild, s, () => appStarten());
+  sperreZeigen(vollbild, s, () => { sperreSichtbar = false; appStarten(); });
 }
 
 function updateBanner(u) {
@@ -145,7 +158,7 @@ auf("verbindung", (e) => { setzen({ verbindung: { ...zustand.verbindung, ...e.zu
 auf("fehler", (e) => toast(e.text, "fehler", 6000));
 auf("hinweis", (e) => toast(e.text, e.art || "info", 5000));
 auf("update_verfuegbar", (e) => updateBanner(e));
-auf("gesperrt", () => sperren());
+auf("gesperrt", () => sperreAnzeigen());
 auf("gelesen", (e) => { const u = finden(e.unterhaltung); if (u) { u.ungelesen = 0; leiste?.liste(); } });
 
 /* ------------------------------------------------------ Tastenkürzel */

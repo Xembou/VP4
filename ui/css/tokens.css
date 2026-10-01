@@ -7,6 +7,17 @@
 
    Regel: Kein Farbwert, kein Radius, keine Dauer steht irgendwo anders
    als hier. Wer etwas anpassen will, ändert es hier und sieht es überall.
+   tests/ui_pruefung.py sucht in den anderen CSS-Dateien nach Farbwerten.
+
+   Kontrast: Jeder Text braucht 4.5:1 auf seinem echten Hintergrund
+   (grosser Text 3:1). ui_pruefung.py misst das in jeder Ansicht und für
+   jede Akzentfarbe in Hell und Dunkel. Deshalb gibt es den Akzent in
+   drei Fassungen:
+     --akzent           die Systemfarbe selbst: Symbole, Ringe, Schalter
+     --akzent-fuellung  gefüllte Flächen mit Text darauf (Knöpfe, eigene
+                        Sprechblasen, gewählte Zeilen) - so tief, dass die
+                        Schrift darauf 4.5:1 schafft
+     --akzent-schrift   Akzent ALS Textfarbe (leise Knöpfe, Verweise)
    ===================================================================== */
 
 @font-face {
@@ -38,124 +49,248 @@
                    "Segoe UI Variable", "Inter VP4", "Segoe UI", system-ui, sans-serif;
   --schrift-mono: "Cascadia Mono", "SF Mono", Consolas, ui-monospace, monospace;
 
+  --t-riesig: 700 32px/38px var(--schrift-titel);  /* Einrichtung */
   --t-gross: 700 28px/34px var(--schrift-titel);   /* Large Title */
   --t-titel: 600 20px/25px var(--schrift-titel);   /* Title */
   --t-titel3: 600 16px/21px var(--schrift-titel);
   --t-kopf: 600 14px/19px var(--schrift);          /* Headline */
   --t-text: 400 14px/20px var(--schrift);          /* Body */
+  --t-blase: 400 14.5px/20px var(--schrift);       /* Sprechblasen */
   --t-hinweis: 400 13px/18px var(--schrift);       /* Callout */
   --t-klein: 400 12px/16px var(--schrift);         /* Subhead */
   --t-mini: 500 11px/14px var(--schrift);          /* Caption */
+  --t-emoji: 400 40px/48px var(--schrift);
+  --t-id: 600 30px/1 var(--schrift-mono);
+  --t-nummer: 500 17px/22px var(--schrift-mono);
+  --laufweite-titel: -.02em;
+  --laufweite-mono: .02em;
 
   /* --- Abstände (4er-Raster) --------------------------------------- */
   --a1: 4px;  --a2: 8px;  --a3: 12px; --a4: 16px; --a5: 20px;
   --a6: 24px; --a8: 32px; --a10: 40px; --a12: 48px;
+
+  /* --- Masse -------------------------------------------------------- */
+  --leiste-breite: 304px;
+  --leiste-breite-mittel: 272px;
+  --leiste-breite-schmal: 84px;
+  --rand-fenster: 10px;             /* Abstand der Flächen zum Fensterrand */
+  --einzug-glas: 10px;              /* Werkzeugleiste/Eingabe zum Panelrand */
+  --zeile-chat: 62px;
+  --zeile-kanal: 36px;
+  --zeile-werkzeug: 44px;
+  --knopf-hoehe: 36px;
+  --knopf-hoehe-gross: 44px;
+  --rund: 34px;
+  --rund-klein: 28px;
+  --blase-max: min(68%, 560px);
+  --medium-max: 320px;
 
   /* --- Radien ------------------------------------------------------- */
   /* Konzentrisch: innen = aussen - Innenabstand. Die Seitenleiste hat 26
      und 12 Innenabstand, also bekommen ihre Zeilen 14 - nicht 26. */
   --r-fenster: 26px;
   --r-blatt: 22px;
+  --r-leiste: 20px;                 /* Werkzeugleiste des Chats */
   --r-karte: 16px;
   --r-zeile: 14px;
+  --r-menue: 14px;
   --r-feld: 12px;
+  --r-kachel: 10px;                 /* farbige Symbol-Kacheln */
   --r-klein: 8px;
+  --r-menue-eintrag: 8px;
+  --r-mini: 6px;
   --r-blase: 18px;
+  --r-blase-eng: 6px;               /* wo zwei Blasen eines Laufs sich treffen */
   --r-kapsel: 9999px;
+  /* Apples "kontinuierliche" Ecken: eine Superellipse mit etwas grösserem
+     Radius sieht aus wie Apples Radius - die reine Squircle mit gleichem
+     Radius wirkt zu eckig. Nie auf Kapseln anwenden: dort macht sie aus
+     der Pille ein abgerundetes Rechteck. */
+  --ecke-form: superellipse(1.6);
+  --r-fenster-glatt: 36px;
+  --r-blatt-glatt: 30px;
+  --r-karte-glatt: 22px;
 
   /* --- Bewegung ----------------------------------------------------- */
   --dauer-kurz: 160ms;
   --dauer: 280ms;
   --dauer-lang: 420ms;
+  --dauer-blitz: 1.2s;
+  --dauer-schimmer: 1.6s;
+  --dauer-tippen: 1.2s;
+  --dauer-tapete: 70s;
   --feder: cubic-bezier(.32, .72, 0, 1);            /* Blätter, Flächen */
   --feder-federnd: cubic-bezier(.175, .885, .32, 1.275);  /* Reaktionen */
   --sanft: cubic-bezier(.25, .1, .25, 1);
+  --druck: scale(.97);
 
-  /* --- Akzent (wird von main.js je nach Wahl umgesetzt) ------------- */
+  /* --- Akzent (Blau; andere über data-akzent weiter unten) --------- */
   --akzent: #0088FF;
-  --akzent-text: #FFFFFF;           /* Text AUF dem Akzent - immer ausdrücklich */
-  --akzent-weich: rgba(0, 136, 255, .14);
-  --akzent-ring: rgba(0, 136, 255, .30);
+  --akzent-fuellung: #0071E3;
+  --akzent-text: #FFFFFF;           /* Text AUF der Füllung - immer ausdrücklich */
+  --akzent-schrift: #0066CC;
+  --akzent-weich: color-mix(in srgb, var(--akzent) 13%, transparent);
+  --akzent-ring: color-mix(in srgb, var(--akzent) 32%, transparent);
+  --akzent-text-weich: color-mix(in srgb, var(--akzent-text) 82%, transparent);
+  --fokus: var(--akzent);
 
   /* --- Hell (Standard) ---------------------------------------------- */
   color-scheme: light;
   --text: #000000;
-  --text-2: rgba(60, 60, 67, .78);     /* bewusst etwas kräftiger als Apples .60 - */
-  --text-3: rgba(60, 60, 67, .52);     /* Windows rendert Schrift dünner */
+  --text-2: rgba(60, 60, 67, .85);     /* Apple: .60 - das schafft keine 4.5:1 */
+  --text-3: rgba(60, 60, 67, .74);     /* Apple: .30 - nur noch für Platzhalter */
+  --text-4: rgba(60, 60, 67, .40);     /* nur Deko: Platzhalter, Symbole */
+  --weiss: #FFFFFF;
   --trenner: rgba(60, 60, 67, .16);
   --rand: rgba(0, 0, 0, .08);
 
   --grund: #F2F2F7;                    /* gruppierter Hintergrund */
+  --grund-rechts: rgba(242, 242, 247, .70);   /* rechte Seite der Einstellungen */
   --flaeche: #FFFFFF;                  /* Karten, Listen */
   --flaeche-2: #F7F7FA;
   --flaeche-hover: rgba(0, 0, 0, .045);
   --flaeche-aktiv: rgba(0, 0, 0, .08);
   --feld: rgba(118, 118, 128, .12);    /* Eingabefelder */
+  --segment-pille: #FFFFFF;
+  --schalter-knopf: #FFFFFF;
+  --grau: #8E8E93;
 
-  --blase-ich: var(--akzent);
+  --blase-ich: var(--akzent-fuellung);
   --blase-ich-text: var(--akzent-text);
   --blase-du: #E9E9EB;
   --blase-du-text: #000000;
+  --auf-blase: rgba(0, 0, 0, .06);          /* Zitat, Dateisymbol in fremden Blasen */
+  --auf-blase-ich: rgba(255, 255, 255, .20);
+  --auf-blase-ich-stark: rgba(255, 255, 255, .28);
 
   --gruen: #34C759;  --rot: #FF383C;  --orange: #FF8D28;  --gelb: #FFCC00;
   --lila: #CB30E0;   --indigo: #6155F5; --mint: #00C8B3;  --pink: #FF2D55;
   --teal: #00C3D0;
+  /* dieselben Farben als Schrift (4.5:1 auf Weiss und #F2F2F7) und als
+     zarte Fläche dahinter */
+  --gruen-schrift: #1E7F38;  --gruen-weich: rgba(52, 199, 89, .15);
+  --rot-schrift: #C7252B;    --rot-weich: rgba(255, 56, 60, .11);
+  --orange-schrift: #A34A00; --orange-weich: rgba(255, 141, 40, .15);
+  --indigo-schrift: #4F43E0; --indigo-weich: rgba(97, 85, 245, .14);
+  --rot-ring: rgba(255, 56, 60, .18);
+  --rot-fuellung: #D92D31;             /* gefährliche Knöpfe: Weiss darauf 4.5:1 */
+  --grau-fuellung: #6C6C70;            /* stumme Zähler */
 
   /* Glas (Liquid Glass, "regular") */
   --glas-fuellung: rgba(255, 255, 255, .58);
-  --glas-fuellung-stark: rgba(255, 255, 255, .78);
+  --glas-fuellung-stark: rgba(255, 255, 255, .84);
   --glas-rand: rgba(255, 255, 255, .60);
   --glas-licht: rgba(255, 255, 255, .90);
+  --glas-unterkante: rgba(255, 255, 255, .05);
   --glas-schatten: 0 8px 32px rgba(0, 0, 0, .12), 0 1px 3px rgba(0, 0, 0, .06);
   --glas-blur: blur(26px) saturate(185%);
+  --glas-blur-stark: blur(44px) saturate(200%);
+  --glas-blur-bricht: url(#fluessigglas) blur(10px) saturate(170%);
   --glas-solide: rgba(246, 246, 250, .97);
 
   --schatten-karte: 0 1px 2px rgba(0, 0, 0, .05), 0 0 0 .5px rgba(0, 0, 0, .05);
+  --schatten-karte-hoch: 0 10px 30px rgba(0, 0, 0, .10), 0 1px 2px rgba(0, 0, 0, .05);
+  --schatten-klein: 0 1px 3px rgba(0, 0, 0, .12), 0 0 0 .5px rgba(0, 0, 0, .04);
+  --schatten-knopf: 0 2px 4px rgba(0, 0, 0, .20), 0 0 0 .5px rgba(0, 0, 0, .05);
   --schatten-hoch: 0 24px 64px rgba(0, 0, 0, .22), 0 2px 8px rgba(0, 0, 0, .08);
+  --schatten-panel: 0 0 0 .5px var(--rand), 0 10px 40px rgba(0, 0, 0, .08);
+  --schatten-logo: 0 14px 36px color-mix(in srgb, var(--akzent) 42%, transparent);
+  --schatten-text: 0 1px 1px rgba(0, 0, 0, .12);
+  --rand-innen: inset 0 0 0 1px rgba(0, 0, 0, .08);
   --abdunkeln: rgba(0, 0, 0, .28);
+  --leuchtkasten-grund: rgba(0, 0, 0, .82);
+  --glanz: rgba(255, 255, 255, .50);          /* Lichtkante auf Logos, Kacheln */
+  --glanz-zart: rgba(255, 255, 255, .22);
+  --schimmer: rgba(255, 255, 255, .45);       /* Lade-Platzhalter */
 
-  /* Der Chat-Hintergrund: die Tapete schimmert gedämpft durch */
-  --chat-schleier: rgba(255, 255, 255, .72);
+  /* Die Hauptfläche: die Tapete schimmert gedämpft durch */
   --hauptflaeche: rgba(255, 255, 255, .86);
+  --hauptflaeche-licht: inset 0 1px 0 rgba(255, 255, 255, .7);
 }
 
 /* --- Dunkel --------------------------------------------------------- */
+/* Nicht Schwarz: Apples dunkle Fenster sind ein tiefes Grau, die Karten
+   darauf eine Stufe heller. Reines Schwarz wirkt flach und billig. */
 :root[data-theme="dark"] {
   color-scheme: dark;
   --text: #FFFFFF;
-  --text-2: rgba(235, 235, 245, .72);
-  --text-3: rgba(235, 235, 245, .46);
+  --text-2: rgba(235, 235, 245, .74);
+  --text-3: rgba(235, 235, 245, .58);
+  --text-4: rgba(235, 235, 245, .32);
   --trenner: rgba(84, 84, 88, .55);
   --rand: rgba(255, 255, 255, .08);
 
-  --grund: #000000;
-  --flaeche: #1C1C1E;
-  --flaeche-2: #232325;
+  --grund: #0E0E10;
+  --grund-rechts: transparent;
+  --flaeche: #262629;
+  --flaeche-2: #2C2C2F;
   --flaeche-hover: rgba(255, 255, 255, .06);
   --flaeche-aktiv: rgba(255, 255, 255, .11);
   --feld: rgba(118, 118, 128, .24);
+  --segment-pille: #636366;
+  --schalter-knopf: #FFFFFF;
 
-  --blase-du: #262629;
+  --blase-du: #2E2E31;
   --blase-du-text: #FFFFFF;
+  --auf-blase: rgba(255, 255, 255, .08);
 
   --gruen: #30D158;  --rot: #FF4245;  --orange: #FF9230;  --gelb: #FFD600;
   --lila: #DB34F2;   --indigo: #6D7CFF; --mint: #00DAC3;  --pink: #FF375F;
   --teal: #00D2E0;
+  --gruen-schrift: #30D158;  --gruen-weich: rgba(48, 209, 88, .16);
+  --rot-schrift: #FF6B6E;    --rot-weich: rgba(255, 66, 69, .16);
+  --orange-schrift: #FF9F4A; --orange-weich: rgba(255, 146, 48, .16);
+  --indigo-schrift: #9AA5FF; --indigo-weich: rgba(109, 124, 255, .18);
+  --grau-fuellung: #636366;
 
   --glas-fuellung: rgba(34, 34, 38, .52);
-  --glas-fuellung-stark: rgba(40, 40, 44, .80);
+  --glas-fuellung-stark: rgba(40, 40, 44, .86);
   --glas-rand: rgba(255, 255, 255, .13);
   --glas-licht: rgba(255, 255, 255, .20);
   --glas-schatten: 0 8px 32px rgba(0, 0, 0, .42), 0 1px 3px rgba(0, 0, 0, .3);
   --glas-solide: rgba(30, 30, 33, .97);
 
-  --schatten-karte: 0 0 0 .5px rgba(255, 255, 255, .06);
+  --schatten-karte: 0 0 0 .5px rgba(255, 255, 255, .07), 0 1px 2px rgba(0, 0, 0, .3);
+  --schatten-karte-hoch: 0 10px 30px rgba(0, 0, 0, .4), 0 0 0 .5px rgba(255, 255, 255, .08);
+  --schatten-klein: 0 1px 3px rgba(0, 0, 0, .4), 0 0 0 .5px rgba(255, 255, 255, .06);
   --schatten-hoch: 0 24px 64px rgba(0, 0, 0, .6), 0 2px 8px rgba(0, 0, 0, .4);
+  --schatten-panel: 0 0 0 .5px var(--rand), 0 10px 40px rgba(0, 0, 0, .35);
+  --rand-innen: inset 0 0 0 1px rgba(255, 255, 255, .10);
   --abdunkeln: rgba(0, 0, 0, .45);
+  --glanz: rgba(255, 255, 255, .35);
+  --glanz-zart: rgba(255, 255, 255, .12);
+  --schimmer: rgba(255, 255, 255, .10);
 
-  --chat-schleier: rgba(10, 10, 12, .62);
-  --hauptflaeche: rgba(22, 22, 24, .86);
+  --hauptflaeche: rgba(26, 26, 29, .84);
+  --hauptflaeche-licht: inset 0 1px 0 rgba(255, 255, 255, .06);
 }
+
+/* --- Akzentfarben ------------------------------------------------------
+   [data-akzent] setzt zustand.js. Füllung und Schrift sind so gewählt,
+   dass sie 4.5:1 schaffen (gemessen in ui_pruefung.py); bei Orange, Grün
+   und Mint wäre Weiss darauf zu schwach - dort steht dunkle Schrift. */
+:root[data-theme="dark"] { --akzent: #0091FF; --akzent-fuellung: #0071E3; --akzent-schrift: #40ACFF; }
+
+:root[data-akzent="indigo"] { --akzent: #6155F5; --akzent-fuellung: #6155F5; --akzent-text: #FFFFFF; --akzent-schrift: #5145E6; }
+:root[data-theme="dark"][data-akzent="indigo"] { --akzent: #6D7CFF; --akzent-fuellung: #5E5CE6; --akzent-schrift: #939EFF; }
+
+:root[data-akzent="lila"] { --akzent: #CB30E0; --akzent-fuellung: #B82BCC; --akzent-text: #FFFFFF; --akzent-schrift: #A027B3; }
+:root[data-theme="dark"][data-akzent="lila"] { --akzent: #DB34F2; --akzent-fuellung: #B82BCC; --akzent-schrift: #E87BF7; }
+
+:root[data-akzent="pink"] { --akzent: #FF2D55; --akzent-fuellung: #D9254A; --akzent-text: #FFFFFF; --akzent-schrift: #C22241; }
+:root[data-theme="dark"][data-akzent="pink"] { --akzent: #FF375F; --akzent-fuellung: #D9254A; --akzent-schrift: #FF7B95; }
+
+:root[data-akzent="rot"] { --akzent: #FF383C; --akzent-fuellung: #D92D31; --akzent-text: #FFFFFF; --akzent-schrift: #BF2A2D; }
+:root[data-theme="dark"][data-akzent="rot"] { --akzent: #FF4245; --akzent-fuellung: #D92D31; --akzent-schrift: #FF7E81; }
+
+:root[data-akzent="orange"] { --akzent: #FF8D28; --akzent-fuellung: #FF8D28; --akzent-text: #1C1C1E; --akzent-schrift: #A34A00; }
+:root[data-theme="dark"][data-akzent="orange"] { --akzent: #FF9230; --akzent-fuellung: #FF9230; --akzent-schrift: #FF9F4A; }
+
+:root[data-akzent="gruen"] { --akzent: #34C759; --akzent-fuellung: #34C759; --akzent-text: #06240F; --akzent-schrift: #1E7F38; }
+:root[data-theme="dark"][data-akzent="gruen"] { --akzent: #30D158; --akzent-fuellung: #30D158; --akzent-schrift: #30D158; }
+
+:root[data-akzent="mint"] { --akzent: #00C8B3; --akzent-fuellung: #00C8B3; --akzent-text: #0B2E2A; --akzent-schrift: #00756A; }
+:root[data-theme="dark"][data-akzent="mint"] { --akzent: #00DAC3; --akzent-fuellung: #00DAC3; --akzent-schrift: #00DAC3; }
 
 /* --- Tapeten ----------------------------------------------------------
    Das Fensterbild liegt IN der Seite. Durchsichtige Fenster kann WebView2

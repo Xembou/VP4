@@ -32,18 +32,20 @@ export function abonnieren(fn) {
 }
 
 /* -------------------------------------------------------- Akzentfarben */
-// Apples Systemfarben aus iOS/macOS 26: [hell, dunkel, Text darauf]
-// Die Textfarbe steht ausdrücklich dabei: auf Mint und Orange ist Weiss
-// grenzwertig, deshalb bekommen sie dunklen Text.
+// Apples Systemfarben aus iOS/macOS 26: [hell, dunkel, Name]. Die Werte
+// hier sind nur für die Farbtupfer in den Einstellungen und für Avatare.
+// Was auf dem Bildschirm wirklich steht - Füllung, Schrift darauf, Akzent
+// als Textfarbe -, steht in tokens.css unter [data-akzent], damit der
+// Kontrast an EINER Stelle stimmt (ui_pruefung.py misst ihn).
 export const AKZENTE = {
-  blau:   ["#0088FF", "#0091FF", "#FFFFFF", "Blau"],
-  indigo: ["#6155F5", "#6D7CFF", "#FFFFFF", "Indigo"],
-  lila:   ["#CB30E0", "#DB34F2", "#FFFFFF", "Lila"],
-  pink:   ["#FF2D55", "#FF375F", "#FFFFFF", "Pink"],
-  rot:    ["#FF383C", "#FF4245", "#FFFFFF", "Rot"],
-  orange: ["#FF8D28", "#FF9230", "#1C1C1E", "Orange"],
-  gruen:  ["#34C759", "#30D158", "#FFFFFF", "Grün"],
-  mint:   ["#00C8B3", "#00DAC3", "#0B2E2A", "Mint"],
+  blau:   ["#0088FF", "#0091FF", "Blau"],
+  indigo: ["#6155F5", "#6D7CFF", "Indigo"],
+  lila:   ["#CB30E0", "#DB34F2", "Lila"],
+  pink:   ["#FF2D55", "#FF375F", "Pink"],
+  rot:    ["#FF383C", "#FF4245", "Rot"],
+  orange: ["#FF8D28", "#FF9230", "Orange"],
+  gruen:  ["#34C759", "#30D158", "Grün"],
+  mint:   ["#00C8B3", "#00DAC3", "Mint"],
 };
 
 export const TAPETEN = {
@@ -51,14 +53,20 @@ export const TAPETEN = {
 };
 
 const dunkelAbfrage = window.matchMedia("(prefers-color-scheme: dark)");
+const ruhigAbfrage = window.matchMedia("(prefers-reduced-motion: reduce)");
 
 export function istDunkel() {
   return document.documentElement.dataset.theme === "dark";
 }
 
-function hexZuRgb(hex) {
-  const n = parseInt(hex.slice(1), 16);
-  return [(n >> 16) & 255, (n >> 8) & 255, n & 255];
+/** Bewegung reduziert - vom System ODER in den Einstellungen. */
+export function bewegungReduziert() {
+  return ruhigAbfrage.matches || document.documentElement.dataset.bewegung === "aus";
+}
+
+/** "smooth" oder "auto" für scrollTo/scrollIntoView. */
+export function scrollArt() {
+  return bewegungReduziert() ? "auto" : "smooth";
 }
 
 export function erscheinungAnwenden(e = zustand.einstellungen) {
@@ -66,14 +74,7 @@ export function erscheinungAnwenden(e = zustand.einstellungen) {
   const design = e.design || "system";
   const dunkel = design === "dark" || (design === "system" && dunkelAbfrage.matches);
   wurzel.dataset.theme = dunkel ? "dark" : "light";
-
-  const [hell, dunkelFarbe, textDarauf] = AKZENTE[e.farbe] || AKZENTE.blau;
-  const farbe = dunkel ? dunkelFarbe : hell;
-  const [r, g, b] = hexZuRgb(farbe);
-  wurzel.style.setProperty("--akzent", farbe);
-  wurzel.style.setProperty("--akzent-text", textDarauf);
-  wurzel.style.setProperty("--akzent-weich", `rgba(${r}, ${g}, ${b}, ${dunkel ? 0.22 : 0.13})`);
-  wurzel.style.setProperty("--akzent-ring", `rgba(${r}, ${g}, ${b}, .32)`);
+  wurzel.dataset.akzent = AKZENTE[e.farbe] ? e.farbe : "blau";
 
   const tapete = e.tapete || "tahoe";
   if (tapete === "tahoe") delete wurzel.dataset.tapete;

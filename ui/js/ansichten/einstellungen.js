@@ -56,7 +56,7 @@ const SEITEN = {
       if (r.ok) { setzen({ profil: r.profil }); toast("Gespeichert – deine Kontakte sehen den neuen Namen"); } else toast(r.fehler, "fehler");
     });
     const farben = h("div.farbwahl", Object.entries(AKZENTE).map(([id, [hell]]) => h("button", {
-      type: "button", "aria-label": id, role: "radio", "aria-checked": String(p.avatar_farbe === hell), style: { "--f": hell },
+      type: "button", "aria-label": AKZENTE[id][2], role: "radio", "aria-checked": String(p.avatar_farbe === hell), style: { "--f": hell },
       onclick: async () => { const r = await rufe("profil_setzen", { avatar_farbe: hell }); if (r.ok) { setzen({ profil: r.profil }); einstellungenZeigen(el.closest(".haupt"), "profil"); } },
     })));
     el.append(h("h2", { text: "Profil" }),
@@ -82,7 +82,7 @@ const SEITEN = {
     const pilleSetzen = () => { const a = design.querySelector('[aria-selected="true"]'); if (a) { pille.style.setProperty("width", `${a.offsetWidth}px`); pille.style.setProperty("transform", `translateX(${a.offsetLeft - 3}px)`); } };
     setTimeout(pilleSetzen);
 
-    const akzent = h("div.farbwahl", Object.entries(AKZENTE).map(([id, [hell, , , name]]) => h("button", {
+    const akzent = h("div.farbwahl", Object.entries(AKZENTE).map(([id, [hell, , name]]) => h("button", {
       type: "button", title: name, "aria-label": name, role: "radio", "aria-checked": String((e.farbe || "blau") === id), style: { "--f": hell },
       onclick: async (ev) => { await setze("farbe", id); for (const b of akzent.children) b.setAttribute("aria-checked", String(b === ev.currentTarget)); },
     })));
