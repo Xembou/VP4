@@ -99,6 +99,7 @@
   font: var(--t-blase);
   white-space: pre-wrap; overflow-wrap: anywhere;
   animation: blase-rein var(--dauer-lang) var(--feder);
+  isolation: isolate;            /* der Schwanz liegt unter dem Text, nicht darüber */
 }
 .zeile.ich .blase { background: var(--blase-ich); color: var(--blase-ich-text); }
 /* Verweise stehen in der Schriftfarbe der Blase, unterstrichen - wie in
@@ -121,6 +122,7 @@
   -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 25 20'%3E%3Cpath d='M0 0H18V7.5C18 14 20 18 25 19.7C22.6 20.3 20.6 20.15 18.6 20H0Z'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
   mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 25 20'%3E%3Cpath d='M0 0H18V7.5C18 14 20 18 25 19.7C22.6 20.3 20.6 20.15 18.6 20H0Z'/%3E%3C/svg%3E") no-repeat 0 0 / 100% 100%;
   pointer-events: none;
+  z-index: -1;
 }
 .zeile.ich.schwanz .blase::after { right: -7px; }
 .zeile:not(.ich).schwanz .blase::after { left: -7px; transform: scaleX(-1); }
@@ -154,7 +156,7 @@
 .medium {
   position: relative; display: block;
   border-radius: var(--r-blase); overflow: hidden;
-  background: var(--feld); cursor: zoom-in;
+  background-color: var(--feld); cursor: zoom-in;
   max-width: var(--medium-max);
   animation: blase-rein var(--dauer-lang) var(--feder);
 }
@@ -178,9 +180,9 @@
 .medium .ueber .kreis .ring .spur { opacity: .3; }
 .medium .ueber small { font: var(--t-mini); padding: 2px 8px; border-radius: var(--r-kapsel); background: var(--medium-schleier); }
 .medium.kaputt {
-  cursor: default; display: grid; place-items: center; align-content: center; gap: 6px;
-  color: var(--text-2); font: var(--t-klein); text-align: center; padding: 16px;
-  box-shadow: inset 0 0 0 1px var(--trenner);
+  cursor: default; display: flex; align-items: center; gap: 10px;
+  color: var(--text-2); font: var(--t-hinweis); padding: 12px 16px 12px 14px;
+  background-color: transparent; box-shadow: inset 0 0 0 1px var(--trenner);
 }
 .medium.kaputt .ic { color: var(--text-3); }
 .medium .spielen {

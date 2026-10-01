@@ -177,7 +177,7 @@
   --teal: #00C3D0;
   /* dieselben Farben als Schrift (4.5:1 auf Weiss und #F2F2F7) und als
      zarte Fläche dahinter */
-  --gruen-schrift: #1E7F38;  --gruen-weich: rgba(52, 199, 89, .15);
+  --gruen-schrift: #186A30;  --gruen-weich: rgba(52, 199, 89, .15);
   --rot-schrift: #C7252B;    --rot-weich: rgba(255, 56, 60, .11);
   --orange-schrift: #A34A00; --orange-weich: rgba(255, 141, 40, .15);
   --indigo-schrift: #4F43E0; --indigo-weich: rgba(97, 85, 245, .14);
@@ -211,11 +211,11 @@
   --glanz: rgba(255, 255, 255, .50);          /* Lichtkante auf Logos, Kacheln */
   --glanz-zart: rgba(255, 255, 255, .22);
   --schimmer: rgba(255, 255, 255, .45);       /* Lade-Platzhalter */
-  --medium-schleier: rgba(0, 0, 0, .38);      /* Ring über einem ladenden Bild */
+  --medium-schleier: rgba(0, 0, 0, .55);      /* Ring über einem ladenden Bild */
   /* Scroll-Kante: der Verlauf läuft unter Leiste und Eingabe weich aus.
      Schwarz heisst hier "sichtbar" (Maske), nicht die Farbe Schwarz. */
-  --verlauf-maske: linear-gradient(to bottom, transparent 0, rgba(0, 0, 0, .25) 10px, #000 72px,
-                   #000 calc(100% - 92px), rgba(0, 0, 0, .25) calc(100% - 14px), transparent 100%);
+  --verlauf-maske: linear-gradient(to bottom, transparent 0, transparent 22px, rgba(0, 0, 0, .18) 52px, #000 90px,
+                   #000 calc(100% - 104px), rgba(0, 0, 0, .18) calc(100% - 56px), transparent calc(100% - 22px));
 
   /* Die Hauptfläche: die Tapete schimmert gedämpft durch */
   --hauptflaeche: rgba(255, 255, 255, .86);
@@ -252,7 +252,7 @@
   --gruen: #30D158;  --rot: #FF4245;  --orange: #FF9230;  --gelb: #FFD600;
   --lila: #DB34F2;   --indigo: #6D7CFF; --mint: #00DAC3;  --pink: #FF375F;
   --teal: #00D2E0;
-  --gruen-schrift: #30D158;  --gruen-weich: rgba(48, 209, 88, .16);
+  --gruen-schrift: #4CDB70;  --gruen-weich: rgba(48, 209, 88, .16);
   --rot-schrift: #FF6B6E;    --rot-weich: rgba(255, 66, 69, .16);
   --orange-schrift: #FF9F4A; --orange-weich: rgba(255, 146, 48, .16);
   --indigo-schrift: #9AA5FF; --indigo-weich: rgba(109, 124, 255, .18);

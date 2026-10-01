@@ -102,7 +102,7 @@ textarea.feld { resize: none; line-height: 20px; }
 .suche input:focus-visible { outline: none; }
 .suche input::placeholder { color: var(--text-3); }
 .suche kbd {
-  font: var(--t-mini); color: var(--text-3);
+  font: var(--t-mini); color: var(--text-2);
   padding: 1px 6px; border-radius: var(--r-mini); background: var(--flaeche-hover);
 }
 
@@ -442,6 +442,7 @@ kbd { font-family: var(--schrift); }
 .schnellwahl-zeile b mark { background: none; color: inherit; font-weight: 700; }
 .schnellwahl-zeile small { display: block; font: var(--t-klein); color: var(--text-2); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .schnellwahl-zeile[aria-selected="true"] small, .schnellwahl-zeile[aria-selected="true"] .art { color: var(--akzent-text-weich); }
+.schnellwahl-zeile[aria-selected="true"] .zaehler { background: var(--akzent-text); color: var(--akzent-fuellung); }
 .schnellwahl-zeile .art { font: var(--t-klein); color: var(--text-3); flex: none; }
 .schnellwahl-zeile .kachel {
   width: 32px; height: 32px; border-radius: var(--r-kachel); flex: none;

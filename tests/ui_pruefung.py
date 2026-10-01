@@ -286,6 +286,9 @@ KONTRAST_JS = r"""
     // Liegt etwas Fremdes ÜBER dem Text (z. B. Glas, unter dem der Verlauf
     // durchscrollt), ist der Text an dieser Stelle gar nicht zu sehen.
     if (!(stapel[0] === el || stapel[0].contains(el))) return null;
+    // Abgeschnitten (z. B. unten aus einer scrollenden Liste heraus): dann
+    // liegt an der Stelle gar nicht der Text, sondern was dahinter ist.
+    if (!stapel.includes(el) && getComputedStyle(el).pointerEvents !== 'none') return null;
     const schichten = [];
     let rest = 1;                 // was von unten noch durchscheint
     for (const e of stapel) {

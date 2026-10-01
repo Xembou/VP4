@@ -390,20 +390,20 @@ class ChatAnsicht {
     });
     // Platz freihalten, damit nichts springt, wenn das Bild kommt
     const b = Number(d.breite) || 0, hh = Number(d.hoehe) || 0;
+    if (d.kaputt) {
+      zeile.classList.add("kaputt");
+      zeile.append(ic("triangle-alert", "ic-20"), h("span", { text: n.art === "video" ? "Das Video kam beschädigt an." : "Das Bild kam beschädigt an." }));
+      return zeile;
+    }
     if (b > 0 && hh > 0) {
       const max = 320;
       const f = Math.min(1, max / b, max / hh);
       zeile.classList.add("mit-mass");
       zeile.style.setProperty("width", `${Math.max(120, Math.round(b * f))}px`);
       zeile.style.setProperty("height", `${Math.max(90, Math.round(hh * f))}px`);
-    } else if (laedt || d.kaputt) {
+    } else if (laedt) {
       zeile.style.setProperty("width", "240px");
       zeile.style.setProperty("height", "180px");
-    }
-    if (d.kaputt) {
-      zeile.classList.add("kaputt");
-      zeile.append(ic("triangle-alert", "ic-28"), h("span", { text: n.art === "video" ? "Das Video kam beschädigt an." : "Das Bild kam beschädigt an." }));
-      return zeile;
     }
     if (n.art === "bild") {
       const quelle = d.url || d.vorschau;
