@@ -190,6 +190,37 @@ def pruefen(R, hilfen):
                      anna.zeitplaner.anzahl() == jobs_vorher, f"{anna.zeitplaner.anzahl()} statt {jobs_vorher}")
             R.pruefe("Nach dem Entsperren ist der Verlauf noch da",
                      any(n["text"] == "Hallo Ben, alles klar?" for n in a_api.nachrichten(ben_id)["liste"]))
+            # Review-Befund 1: Sperren von Hand legte ein "gesperrt" in die
+            # Warteschlange, das die Oberfläche nach dem Entsperren abholte -
+            # und daraufhin sofort wieder sperrte, immer wieder.
+            a_api.ereignisse_holen()
+            a_api.sperren()
+            a_api.entsperren("Annas-Passwort-1")
+            R.pruefe("Von Hand sperren hinterlässt kein 'gesperrt', das gleich wieder sperrt",
+                     not any(e["typ"] == "gesperrt" for e in a_api.ereignisse_holen()["liste"]))
+            # Review-Befund 9: hing beim Sperren gerade ein Versand, blieb danach
+            # alles auf "Wird gesendet" stehen.
+            langsam = threading.Event()
+            echtes = anna.netz.senden
+            def zaeh(*a, **k):
+                langsam.wait(5)
+                return echtes(*a, **k)
+            anna.netz.senden = zaeh
+            a_api.senden(ben_id, {"text": "hängt"})
+            time.sleep(0.2)
+            a_api.sperren()
+            langsam.set()
+            a_api.entsperren("Annas-Passwort-1")
+            a_api.senden(ben_id, {"text": "Nach dem Hänger"})
+            R.pruefe("Nach einem hängenden Versand beim Sperren wird danach wieder gesendet",
+                     _warten(lambda: any(n["text"] == "Nach dem Hänger" for n in b_api.nachrichten(anna_id).get("liste", []))))
+            # Review-Befund 11: geöffnete Anhänge lagen im Klartext herum
+            (anna.ordner / "geoeffnet").mkdir(exist_ok=True)
+            (anna.ordner / "geoeffnet" / "foto.jpg").write_bytes(b"x")
+            a_api.sperren()
+            R.pruefe("Beim Sperren verschwinden geöffnete Klartext-Kopien",
+                     not any((anna.ordner / "geoeffnet").glob("*")))
+            a_api.entsperren("Annas-Passwort-1")
         finally:
             anna.beenden()
             ben.beenden()

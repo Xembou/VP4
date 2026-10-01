@@ -71,6 +71,27 @@ QUICK_EMOJI_LAENGE = 16
 MAX_VORLAUF_MS = 5 * 60 * 1000
 
 SYSTEM = "system"
+# Echte Community-Nachrichten sind klein (Text, Karte, Manifest). Was grösser
+# ist und sich nicht entschlüsseln lässt, wird nicht aufgehoben - sonst
+# könnte jeder, der die (offene) Community-ID kennt, den Speicher füllen.
+MAX_COMMUNITY_NACHRICHT = 256 * 1024
+MAX_WARTEND_BYTES = 4 * 1024 * 1024
+WARTEND_ABLAUF_S = 15 * 60
+
+
+def _dateiname_saeubern(name: str) -> str:
+    """Steuer- und Richtungszeichen raus: "rechnung\u202efdp.exe" sähe sonst
+    aus wie "rechnungexe.pdf"."""
+    import unicodedata
+    sauber = "".join(z for z in name if unicodedata.category(z) not in ("Cc", "Cf"))
+    sauber = Path(sauber.replace("\\", "/")).name.strip().strip(".")
+    return sauber[:200] or "Datei"
+
+
+# Dateiendungen, die Windows beim Öffnen ausführt
+AUSFUEHRBAR = {".exe", ".com", ".scr", ".bat", ".cmd", ".pif", ".lnk", ".url", ".hta", ".js", ".jse",
+               ".vbs", ".vbe", ".wsf", ".wsh", ".ps1", ".psm1", ".msi", ".msp", ".reg", ".cpl", ".jar",
+               ".appref-ms", ".application", ".gadget", ".msc", ".scf", ".inf", ".dll", ".sys", ".iso", ".img", ".vhd", ".vhdx"}
 
 
 def _jetzt_ms() -> int:
@@ -138,7 +159,8 @@ class Bote:
         self._sammler = _Sammler()
         self._gesehen = {}                 # msg_id -> Zeit, für Steuer-Nachrichten
         self._wartend = []                 # Community-Umschläge ohne passenden Kanal
-        self._manifest_antwort = {}        # community -> Zeitpunkt
+        self._manifest_antwort = {}        # community -> Zeitpunkt der letzten Antwort auf einen Beitritt
+        self._beitritt_gesehen = {}        # community -> Zeitpunkt des letzten Beitritts
         self._entschluesselungsfehler = {}  # absender -> Zeitpunkt der letzten Meldung
 
     # =================================================================
@@ -179,7 +201,7 @@ class Bote:
         if k.get("karte"):
             name = k["karte"].get("name") or kontakt_id
             # In Communities ist der Name eine Selbstauskunft - die ID gehört dazu
-            return name if k["status"] in ("ok", "anfrage_rein", "anfrage_raus") else f"{name} ({kontakt_id[:5]})"
+            return name if k["status"] == "ok" else f"{name} ({kontakt_id[:5]})"
         return kontakt_id
 
     def farbe_von(self, kontakt_id: str) -> str:
@@ -252,6 +274,15 @@ class Bote:
         if neu:
             self._system(kid, f"Ihr seid verbunden. Nachrichten mit {karte.get('name') or kid} sind Ende-zu-Ende verschlüsselt.")
         self.ereignis("kontakt_geaendert", id=kid)
+        self.ereignis("unterhaltungen_geaendert")
+
+    def kontakt_blockieren(self, kontakt_id: str):
+        """Keine Anfragen, keine Nachrichten mehr - bis man ihn selbst wieder hinzufügt."""
+        if kontakt_id == self.meine_id:
+            raise ValueError("Dich selbst kannst du nicht blockieren.")
+        self.db.kontakt_speichern(kontakt_id, status="blockiert")
+        self.tresor.paar_schluessel_loeschen(kontakt_id)
+        self.ereignis("kontakt_geaendert", id=kontakt_id)
         self.ereignis("unterhaltungen_geaendert")
 
     def kontakt_entfernen(self, kontakt_id: str):
@@ -348,12 +379,15 @@ class Bote:
             if status in ("anfrage_raus", "ok"):
                 self._verbinden(karte)
         elif u.typ == um.ABLEHNUNG:
-            if status == "anfrage_raus":
+            # Nur eine Ablehnung, die NACH unserer Anfrage geschrieben wurde -
+            # eine alte, erneut eingespielte darf keine neue Anfrage löschen.
+            if status == "anfrage_raus" and u.ts_ms >= (vorhanden.get("hinzugefuegt") or 0) - 60_000:
                 self.db.kontakt_loeschen(u.von)
                 self.ereignis("hinweis", text=f"{karte['name']} hat deine Anfrage abgelehnt.")
                 self.ereignis("kontakt_geaendert", id=u.von)
         elif u.typ == um.KARTE:
-            if status in ("ok", "mitglied", "anfrage_rein", "anfrage_raus"):
+            alt_ts = ((vorhanden or {}).get("karte") or {}).get("ts", 0)
+            if status in ("ok", "mitglied", "anfrage_rein", "anfrage_raus") and karte.get("ts", 0) > alt_ts:
                 self.db.kontakt_speichern(u.von, karte_json=karte)
                 if status == "ok":
                     self.db.unterhaltung_titel_setzen(u.von, karte["name"])
@@ -390,6 +424,10 @@ class Bote:
         if art == "text":
             text = str(inner.get("text") or "")[:MAX_TEXT]
             antwort = inner.get("antwort_auf") if isinstance(inner.get("antwort_auf"), str) else None
+            if antwort:
+                bezug = self.db.nachricht_holen(antwort)
+                if not bezug or bezug["unterhaltung_id"] != unterhaltung:
+                    antwort = None
             if self.db.nachricht_einfuegen(nid, unterhaltung, u.von, ts, {"text": text}, "text",
                                            antwort, status="", weg=weg):
                 self._neu_gemeldet(unterhaltung, nid, text)
@@ -429,9 +467,11 @@ class Bote:
         elif n["absender_id"] != u.von:
             return          # fremde Nachrichten ändert niemand
         elif art == "bearbeiten":
+            if u.ts_ms <= (n["bearbeitet"] or 0):
+                return      # eine ältere Fassung, erneut eingespielt
             text = str(inner.get("text") or "")[:MAX_TEXT]
             inhalt = dict(n["inhalt"] or {}, text=text)
-            self.db.nachricht_bearbeiten(ziel, inhalt)
+            self.db.nachricht_bearbeiten(ziel, inhalt, ts=u.ts_ms)
         elif art == "loeschen":
             for pfad in self.db.nachricht_als_geloescht_markieren(ziel):
                 self._datei_weg(pfad)
@@ -524,8 +564,10 @@ class Bote:
             raise ValueError("Leere Nachricht.")
         if len(text) > MAX_TEXT:
             raise ValueError(f"Höchstens {MAX_TEXT} Zeichen pro Nachricht.")
-        if antwort_auf and not self.db.nachricht_holen(antwort_auf):
-            antwort_auf = None
+        if antwort_auf:
+            bezug = self.db.nachricht_holen(antwort_auf)
+            if not bezug or bezug["unterhaltung_id"] != unterhaltung:
+                antwort_auf = None
         inner = {"art": "text", "text": text}
         if antwort_auf:
             inner["antwort_auf"] = antwort_auf
@@ -552,6 +594,8 @@ class Bote:
         n = self.db.nachricht_holen(nachricht_id)
         if not n:
             return
+        if n["status"] not in ("senden", ""):
+            return      # schon angekommen - ein später Zeitfehler ändert daran nichts
         self.db.nachricht_status_setzen(nachricht_id, "fehler")
         self._geaendert(n["unterhaltung_id"], nachricht_id)
 
@@ -731,7 +775,7 @@ class Bote:
                 return
         except (KeyError, ValueError, TypeError):
             return
-        name = Path(str(meta.get("name") or "Datei")).name[:200]
+        name = _dateiname_saeubern(str(meta.get("name") or "Datei"))
         mime = str(meta.get("mime") or "application/octet-stream")[:100]
         typ = self._typ_fuer(mime, "sprache" if meta.get("typ") == "sprache" else "auto")
         vorschau = None
@@ -753,10 +797,20 @@ class Bote:
         self._quittung_vormerken(unterhaltung, nid, "zugestellt", u.von, community)
         self._zusammensetzen(datei_id.hex())
 
-    def _teil_empfangen(self, u, roh):
+    def _teil_empfangen(self, u, roh, nur_bekannte=False):
         datei_id = u.msg_id[:12].hex()
         nummer = int.from_bytes(u.msg_id[12:], "big")
         if nummer > MAX_DATEI // TEIL_GROESSE + 1:
+            return
+        anhang = self.db.anhang_holen(datei_id)
+        if anhang:
+            n = self.db.nachricht_holen(anhang["nachricht_id"])
+            meta = ((n or {}).get("inhalt") or {}).get("datei") or {}
+            if not n or n["absender_id"] != u.von or nummer >= int(meta.get("teile", 0)):
+                return      # fremder Absender oder Nummer, die es nicht gibt
+        elif nur_bekannte:
+            # In einer Community kennt jeder die ID - Teile ohne vorherige
+            # Datei-Nachricht werden deshalb gar nicht erst gespeichert.
             return
         ordner = self.medien / "teile" / datei_id
         ordner.mkdir(parents=True, exist_ok=True)
@@ -775,7 +829,7 @@ class Bote:
         meta = ((n or {}).get("inhalt") or {}).get("datei") or {}
         ordner = self.medien / "teile" / datei_id
         teile = int(meta.get("teile", 0))
-        vorhanden = sorted(ordner.glob("*.bin")) if ordner.exists() else []
+        vorhanden = [i for i in range(teile) if (ordner / f"{i}.bin").exists()]
         if len(vorhanden) < teile:
             if vorhanden:
                 self._geaendert(n["unterhaltung_id"], n["id"], fortschritt=len(vorhanden) / teile)
@@ -857,6 +911,7 @@ class Bote:
         self.tresor.community_schluessel_setzen(cid, schluessel)
         self.db.community_speichern(cid, name=manifest["name"], schluessel=schluessel,
                                     besitzer_id=self.meine_id, manifest_json=manifest, icon=icon or "")
+        self._basis_setzen(cid, manifest)
         self._kanaele_anwenden(cid, manifest)
         self._system(kanal["id"], "Du hast diese Gruppe erstellt." if gruppe else "Du hast diese Community gegründet.")
         self.ereignis("community_geaendert", id=cid)
@@ -870,6 +925,13 @@ class Bote:
             if alt["id"] not in neu:
                 self.db.kanal_loeschen(alt["id"])
         for k in manifest["kanaele"]:
+            vorhanden = self.db.kanal_holen(k["id"])
+            u_vorhanden = self.db.unterhaltung_holen(k["id"])
+            if (vorhanden and vorhanden["community_id"] != cid) or \
+                    (u_vorhanden and u_vorhanden["community_id"] != cid):
+                # Die ID gehört schon woanders hin (einer anderen Community oder
+                # einem Chat) - ein fremdes Manifest darf sie nicht an sich reissen.
+                continue
             self.db.kanal_speichern(k["id"], cid, k["name"], k.get("position", 0), bool(k.get("nur_admins")))
             self.db.unterhaltung_anlegen_oder_holen(k["id"], "gruppe" if gruppe else "kanal",
                                                     manifest["name"] if gruppe else k["name"], cid)
@@ -896,7 +958,7 @@ class Bote:
         self._steuer_senden(kanal, {"art": "beitritt"})
         self.ereignis("community_geaendert", id=cid)
         self.ereignis("unterhaltungen_geaendert")
-        return {"id": cid, "name": "Neue Community"}
+        return {"id": cid, "name": "Neue Community", "gruppe": False}
 
     def community_verlassen(self, cid):
         for k in self.db.kanaele(cid):
@@ -930,29 +992,65 @@ class Bote:
         return kid
 
     def _manifest_uebernehmen(self, cid, manifest):
+        c = self.db.community_holen(cid)
+        if c and manifest["von"] == c["besitzer_id"]:
+            self._basis_setzen(cid, manifest)
         self.db.community_speichern(cid, name=manifest["name"], icon=manifest["icon"], manifest_json=manifest)
         self._kanaele_anwenden(cid, manifest)
         self.ereignis("community_geaendert", id=cid)
         self.ereignis("unterhaltungen_geaendert")
         # Was vorher an keinem Kanal passte, jetzt nochmal versuchen
         wartend, self._wartend = self._wartend, []
-        for roh, weg in wartend:
-            self.empfangen(roh, weg)
+        grenze = time.time() - WARTEND_ABLAUF_S
+        for roh, weg, zeit in wartend:
+            if zeit >= grenze:
+                self.empfangen(roh, weg)
+
+    def _warten_lassen(self, roh, weg):
+        """Merkt sich eine Kanalnachricht, deren Kanal (noch) unbekannt ist -
+        klein, begrenzt und mit Ablaufzeit."""
+        grenze = time.time() - WARTEND_ABLAUF_S
+        self._wartend = [w for w in self._wartend if w[2] >= grenze]
+        while self._wartend and sum(len(w[0]) for w in self._wartend) + len(roh) > MAX_WARTEND_BYTES:
+            self._wartend.pop(0)
+        if len(roh) <= MAX_COMMUNITY_NACHRICHT:
+            self._wartend.append((roh, weg, time.time()))
+
+    def _karte_von(self, nutzer_id):
+        if nutzer_id == self.meine_id:
+            return self.karte()
+        return (self.db.kontakt_holen(nutzer_id) or {}).get("karte")
+
+    def _basis(self, cid):
+        """Das letzte vom BESITZER unterschriebene Manifest. Ein Neuer hat noch
+        keine Admin-Liste - ohne diesen Anker könnte er ein von einem Admin
+        geändertes Manifest gar nicht prüfen."""
+        return (self.tresor.extra_holen("basis_manifeste", {}) or {}).get(cid)
+
+    def _basis_setzen(self, cid, manifest):
+        alle = dict(self.tresor.extra_holen("basis_manifeste", {}) or {})
+        alle[cid] = manifest
+        self.tresor.extra_setzen("basis_manifeste", alle)
 
     def _manifest_verschicken(self, cid, manifest):
-        unterzeichner = self.db.kontakt_holen(manifest["von"]) if manifest["von"] != self.meine_id else None
-        karte_von = self.karte() if manifest["von"] == self.meine_id else (unterzeichner or {}).get("karte")
+        karte_von = self._karte_von(manifest["von"])
         if not karte_von:
             return
-        self._manifest_antwort[cid] = time.time()
-        self._steuer_senden(standard_kanal_id(cid), {"art": "manifest", "manifest": manifest, "karte_von": karte_von})
+        inner = {"art": "manifest", "manifest": manifest, "karte_von": karte_von}
+        c = self.db.community_holen(cid)
+        basis = self._basis(cid)
+        if manifest["von"] != c["besitzer_id"] and basis and self._karte_von(c["besitzer_id"]):
+            inner.update(basis=basis, karte_besitzer=self._karte_von(c["besitzer_id"]))
+        self._steuer_senden(standard_kanal_id(cid), inner)
 
     def _community_empfangen(self, u, weg):
         c = self.db.community_holen(u.an)
         if not c:
             return
         if u.typ == um.DATEI_TEIL:
-            self._teil_empfangen(u, u.packen())
+            self._teil_empfangen(u, u.packen(), nur_bekannte=True)
+            return
+        if len(u.body) > MAX_COMMUNITY_NACHRICHT:
             return
         ckey = self.tresor.community_schluessel(u.an)
         kanaele = {k["id"]: e2e.kanal_schluessel(ckey, k["id"]) for k in self.db.kanaele(u.an)}
@@ -963,8 +1061,8 @@ class Bote:
         try:
             inner, karte = um.kanal_lesen(u, kanaele, ed)
         except ValueError as e:
-            if "keinem Kanal" in str(e) and len(self._wartend) < 500:
-                self._wartend.append((u.packen(), weg))
+            if "keinem Kanal" in str(e):
+                self._warten_lassen(u.packen(), weg)
             return
         if karte and not bekannt:
             self.db.kontakt_speichern(u.von, karte_json=karte, status="mitglied")
@@ -973,11 +1071,15 @@ class Bote:
             return
         art = inner.get("art")
         if art == "manifest":
+            # Kam das als Antwort auf einen Beitritt, muss nicht jeder nochmal antworten
+            if time.time() - self._beitritt_gesehen.get(u.an, 0) < 10:
+                self._manifest_antwort[u.an] = time.time()
             self._manifest_empfangen(u.an, inner)
             return
         if art == "beitritt":
             self._system(kanal["id"], f"{self.name_von(u.von)} ist beigetreten.", ts=u.ts_ms,
                          kennung=u.msg_id.hex(), absender=u.von)
+            self._beitritt_gesehen[u.an] = time.time()
             self._auf_beitritt_antworten(u.an)
             return
         if kanal["nur_admins"] and art in ("text", "datei") and not self._ist_admin(u.an, u.von):
@@ -993,9 +1095,19 @@ class Bote:
             return
         try:
             karte_von = karte_pruefen(karte_von)
+            stand_version = (alt or {}).get("version", 0)
+            stand_admins = (alt or {}).get("admins", [])
+            basis = inner.get("basis")
+            if isinstance(basis, dict) and isinstance(inner.get("karte_besitzer"), dict) \
+                    and m.get("von") != c["besitzer_id"] and basis.get("version", 0) > stand_version:
+                # Erst den Anker (vom Besitzer) prüfen, dann das Admin-Manifest darauf
+                karte_besitzer = karte_pruefen(inner["karte_besitzer"])
+                basis = manifest_pruefen(basis, {karte_besitzer["id"]: karte_besitzer}, c["besitzer_id"],
+                                         stand_version, stand_admins, community_id=cid)
+                stand_version, stand_admins = basis["version"], basis["admins"]
+                self._manifest_uebernehmen(cid, basis)
             sauber = manifest_pruefen(m, {karte_von["id"]: karte_von}, c["besitzer_id"],
-                                      (alt or {}).get("version", 0), (alt or {}).get("admins", []),
-                                      community_id=cid)
+                                      stand_version, stand_admins, community_id=cid)
         except ValueError as e:
             log.info("Manifest für %s abgelehnt: %s", cid, e)
             return
@@ -1006,8 +1118,9 @@ class Bote:
         es ist ja vom Besitzer unterschrieben. Damit nicht alle gleichzeitig
         antworten: höchstens einmal pro Minute und Community."""
         m = self._manifest(cid)
-        if not m or time.time() - self._manifest_antwort.get(cid, 0) < 60:
+        if not m or time.time() - self._manifest_antwort.get(cid, 0) < 10:
             return
+        self._manifest_antwort[cid] = time.time()
         try:
             self._manifest_verschicken(cid, m)
         except ValueError:
@@ -1023,6 +1136,8 @@ class Bote:
         if not c or c["besitzer_id"] != self.meine_id:
             raise ValueError("Nur der Besitzer kann einen neuen Code erstellen.")
         neu = community_schluessel_neu()
+        stand = _jetzt_ms()
+        self._schluessel_stand_setzen(cid, stand)
         mitglieder = {m["id"] for m in self.mitglieder(cid)}
         self.tresor.community_schluessel_setzen(cid, neu)
         self.db.community_speichern(cid, schluessel=neu)
@@ -1030,7 +1145,8 @@ class Bote:
             k = self.db.kontakt_holen(kid)
             if k and k["status"] == "ok" and self.tresor.paar_schluessel(kid):
                 u = um.dm_bauen(self.ich, self.tresor.paar_schluessel(kid), self.meine_id, kid,
-                                {"art": "community_schluessel", "community": cid, "schluessel": _b64(neu)})
+                                {"art": "community_schluessel", "community": cid, "schluessel": _b64(neu),
+                                 "stand": stand})
                 self.ausgang(Auftrag(u.packen(), kid))
         self._manifest_aendern(cid, lambda k, a, n, i: (k, a, n, i))
         return self.einladung(cid)
@@ -1042,12 +1158,27 @@ class Bote:
             return
         try:
             neu = _unb64(inner["schluessel"])
-        except (KeyError, ValueError):
+            stand = int(inner["stand"])
+        except (KeyError, ValueError, TypeError):
+            return
+        # Nur ein NEUERER Schlüssel: Eine alte, erneut eingespielte Nachricht
+        # würde sonst den Schlüssel zurückdrehen - und wer beim letzten
+        # Wechsel ausgesperrt wurde, läse wieder mit.
+        if stand <= self._schluessel_stand(cid):
             return
         if len(neu) == 32:
+            self._schluessel_stand_setzen(cid, stand)
             self.tresor.community_schluessel_setzen(cid, neu)
             self.db.community_speichern(cid, schluessel=neu)
             self._system(standard_kanal_id(cid), "Die Gruppe hat einen neuen Schlüssel bekommen.")
+
+    def _schluessel_stand(self, cid) -> int:
+        return int((self.tresor.extra_holen("schluessel_stand", {}) or {}).get(cid, 0))
+
+    def _schluessel_stand_setzen(self, cid, stand):
+        staende = dict(self.tresor.extra_holen("schluessel_stand", {}) or {})
+        staende[cid] = int(stand)
+        self.tresor.extra_setzen("schluessel_stand", staende)
 
     def mitglieder(self, cid) -> list:
         """Wer zuletzt geschrieben hat - eine Mitgliederliste gibt es bewusst nicht."""
@@ -1144,8 +1275,8 @@ class Bote:
             return (c or {}).get("name") or u["titel"]
         return u["titel"]
 
-    def nachrichten(self, unterhaltung, vor_ts=None, anzahl=50):
-        zeilen = self.db.nachrichten_seite(unterhaltung, vor_ts=vor_ts, anzahl=anzahl + 1)
+    def nachrichten(self, unterhaltung, vor_ts=None, anzahl=50, vor_id=None):
+        zeilen = self.db.nachrichten_seite(unterhaltung, vor_ts=vor_ts, anzahl=anzahl + 1, vor_id=vor_id)
         mehr = len(zeilen) > anzahl
         zeilen = list(reversed(zeilen[:anzahl]))
         reaktionen = self.db.reaktionen_fuer_nachrichten([z["id"] for z in zeilen])
@@ -1182,7 +1313,9 @@ class Bote:
         return liste
 
     def communities(self) -> list:
-        ungelesen = {u["id"]: u["ungelesen"] for u in self.db.unterhaltungen_alle(self.meine_id)}
+        alle = self.db.unterhaltungen_alle(self.meine_id)
+        ungelesen = {u["id"]: u["ungelesen"] for u in alle}
+        letzte = {u["id"]: (u.get("letzte_nachricht") or {}).get("ts", 0) for u in alle}
         liste = []
         for c in self.db.communities_alle():
             m = self._manifest(c["id"]) or {}
@@ -1192,6 +1325,8 @@ class Bote:
                           "admin": self._ist_admin(c["id"], self.meine_id),
                           "besitzer": c["besitzer_id"] == self.meine_id,
                           "geladen": bool(m),
+                          "letzte_ts": max([letzte.get(k["id"], 0) for k in kanaele] or [0]),
+                          "mitglieder": len(self.mitglieder(c["id"])) + 1,
                           "kanaele": [{"id": k["id"], "name": k["name"], "unterhaltung": k["id"],
                                        "nur_admins": k["nur_admins"], "ungelesen": ungelesen.get(k["id"], 0)}
                                       for k in kanaele]})

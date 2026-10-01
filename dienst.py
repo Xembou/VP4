@@ -146,10 +146,15 @@ class VP4Dienst:
             datenschluessel_merken(self.tresor, self.dpapi, self.dpapi_datei)
         self._hochfahren()
 
-    def sperren(self):
+    def sperren(self, automatisch: bool = False):
+        """Sperrt. Nur das automatische Sperren meldet sich bei der Oberfläche -
+        wer von Hand sperrt, IST die Oberfläche. (Vorher holte sie ein altes
+        "gesperrt" nach dem Entsperren ab und sperrte sich sofort wieder.)"""
         self._herunterfahren()
         self.tresor.lock()
-        self.ereignisse.melden("gesperrt")
+        self.ereignisse.holen()        # nichts Altes über die Sperre hinweg retten
+        if automatisch:
+            self.ereignisse.melden("gesperrt")
 
     def _hochfahren(self):
         with self._lock:
@@ -174,7 +179,11 @@ class VP4Dienst:
                              ereignis=self._bote_ereignis, medien_ordner=self.medien_ordner,
                              profil=lambda: self._profil, einstellungen=lambda: self.einst,
                              medien_url=url, loeschen_lassen=self._discord_loeschen)
-            self._versand = threading.Thread(target=self._versand_schleife, name="vp4-versand", daemon=True)
+            # Jede Sitzung bekommt ihre EIGENE Schlange: Hängt der alte Versand
+            # beim Sperren noch, darf er der neuen Sitzung nichts wegnehmen.
+            self._versand_schlange = queue.Queue()
+            self._versand = threading.Thread(target=self._versand_schleife, args=(self._versand_schlange, self.bote),
+                                             name="vp4-versand", daemon=True)
             self._versand.start()
             self.netz = self._netz_fabrik(self)
             if self.netz:
@@ -202,6 +211,8 @@ class VP4Dienst:
                 self._versand_schlange.put(None)
                 self._versand.join(3)
                 self._versand = None
+            # Geöffnete Anhänge liegen dort im Klartext und mit echtem Namen
+            shutil.rmtree(self.ordner / "geoeffnet", ignore_errors=True)
             if self.medien:
                 self.medien.stoppen()
                 self.medien = None
@@ -253,36 +264,40 @@ class VP4Dienst:
     def _ausgang(self, auftrag: Auftrag):
         self._versand_schlange.put(auftrag)
 
-    def _versand_schleife(self):
+    def _versand_schleife(self, schlange, bote):
         while True:
-            auftrag = self._versand_schlange.get()
-            if auftrag is None:
-                return
-            bote, netz = self.bote, self.netz
-            if not bote:
+            auftrag = schlange.get()
+            if auftrag is None or self.bote is not bote:
                 return
             try:
-                if not netz:
-                    raise ConnectionError("Kein Netz.")
-                weg = netz.senden(auftrag.bytes(), auftrag.an, community=auftrag.community,
-                                  fluechtig=auftrag.fluechtig)
-                if auftrag.nachricht_id and auftrag.teil is None:
-                    bote.gesendet(auftrag.nachricht_id, weg)
-                elif auftrag.teil is not None and auftrag.teile:
-                    bote._geaendert(auftrag.unterhaltung, auftrag.nachricht_id,
-                                    fortschritt=(auftrag.teil + 1) / auftrag.teile)
-            except (ConnectionError, OSError, ValueError) as e:
-                if auftrag.fluechtig:
-                    continue
-                if auftrag.nachricht_id:
-                    bote.fehlgeschlagen(auftrag.nachricht_id, str(e))
-                    self.ereignisse.melden("fehler", text=f"Nicht gesendet: {e}")
-                else:
-                    log.info("Steuernachricht nicht gesendet: %s", e)
+                self._versenden(auftrag, bote)
             except Exception:
+                # Auch die Fehlerbehandlung selbst kann scheitern (z. B. Datenbank
+                # schon zu) - der Faden darf daran nie sterben.
                 log.exception("Versand ist gescheitert")
-                if auftrag.nachricht_id:
-                    bote.fehlgeschlagen(auftrag.nachricht_id, "unerwarteter Fehler")
+
+    def _versenden(self, auftrag, bote):
+        netz = self.netz
+        try:
+            if not netz:
+                raise ConnectionError("Kein Netz.")
+            weg = netz.senden(auftrag.bytes(), auftrag.an, community=auftrag.community,
+                              fluechtig=auftrag.fluechtig)
+            if self.bote is not bote:
+                return
+            if auftrag.nachricht_id and auftrag.teil is None:
+                bote.gesendet(auftrag.nachricht_id, weg)
+            elif auftrag.teil is not None and auftrag.teile:
+                bote._geaendert(auftrag.unterhaltung, auftrag.nachricht_id,
+                                fortschritt=(auftrag.teil + 1) / auftrag.teile)
+        except (ConnectionError, OSError, ValueError) as e:
+            if auftrag.fluechtig or self.bote is not bote:
+                return
+            if auftrag.nachricht_id:
+                bote.fehlgeschlagen(auftrag.nachricht_id, str(e))
+                self.ereignisse.melden("fehler", text=f"Nicht gesendet: {e}")
+            else:
+                log.info("Steuernachricht nicht gesendet: %s", e)
 
     def _discord_loeschen(self, nachricht_id: str):
         netz = self.netz
@@ -371,6 +386,8 @@ class VP4Dienst:
             except FileNotFoundError:
                 pass
         shutil.rmtree(self.medien_ordner, ignore_errors=True)
+        shutil.rmtree(self.ordner / "geoeffnet", ignore_errors=True)
+        shutil.rmtree(self.ordner / "webview", ignore_errors=True)
         self.einst = dict(STANDARD_EINSTELLUNGEN)
         self._profil = {}
         self.tresor = Tresor(self.ordner / "tresor.enc")
@@ -378,7 +395,7 @@ class VP4Dienst:
     def _auto_sperre(self):
         minuten = int(self.einst.get("auto_sperre_min") or 0)
         if minuten and time.time() - self.letzte_aktivitaet > minuten * 60 and self.bote:
-            self.sperren()
+            self.sperren(automatisch=True)
 
     def _update_im_hintergrund(self):
         try:

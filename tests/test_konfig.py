@@ -31,3 +31,16 @@ def pruefen(R, hilfen):
     from netz import lan
     R.pruefe("Chat-Ports liegen unter dem dynamischen Windows-Bereich (49152)",
              lan.CHAT_PORT < 49152 and lan.BROADCAST_PORT < 49152)
+
+    # Jede .py-Datei muss sich übersetzen lassen - bauen.py war einmal mit
+    # einer übrig gebliebenen Klammer eingecheckt und lief gar nicht.
+    import py_compile
+    kaputt = []
+    for datei in WURZEL.rglob("*.py"):
+        if ".venv" in datei.parts:
+            continue
+        try:
+            py_compile.compile(str(datei), doraise=True, cfile=None)
+        except py_compile.PyCompileError as e:
+            kaputt.append(f"{datei.relative_to(WURZEL)}: {e.msg.splitlines()[-1] if e.msg else e}")
+    R.pruefe("Alle Python-Dateien lassen sich übersetzen", not kaputt, "; ".join(kaputt))

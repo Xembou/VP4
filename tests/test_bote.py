@@ -309,3 +309,138 @@ def pruefen(R, hilfen):
 
         for b in netz.boten.values():
             b.db.close()
+    pruefen_review(R, hilfen)
+
+
+def pruefen_review(R, hilfen):
+    """Befunde aus dem Code-Review vom 01.10.2026 - jede Prüfung zeigt einen Fehler."""
+    import os
+    from kern import e2e
+    from kern.communities import manifest_bauen, standard_kanal_id
+    wirft = hilfen["wirft_valueerror"]
+    with tempfile.TemporaryDirectory() as ordner:
+        netz = SpielNetz()
+        anna = person(netz, "Anna", ordner)
+        ben = person(netz, "Ben", ordner)
+        mallory = person(netz, "Mallory", ordner)
+        cid = anna.community_erstellen("Klasse", "📚")
+        code = anna.einladung(cid)
+        ben.community_beitreten(code)
+        netz.zustellen()
+
+        # 2) Datei-Teile an eine Community ohne passende Datei-Nachricht
+        teile_ordner = ben.medien / "teile"
+        vorher = sum(1 for _ in teile_ordner.glob("*"))
+        for i in range(5):
+            u = um.verschluesselt_bauen(os.urandom(32), mallory.meine_id, cid, os.urandom(2000),
+                                        typ=um.DATEI_TEIL, msg_id=os.urandom(12) + i.to_bytes(4, "big"))
+            ben.empfangen(u.packen())
+        R.pruefe("Fremde Datei-Teile an eine Community landen nicht auf der Platte",
+                 sum(1 for _ in teile_ordner.glob("*")) == vorher)
+
+        # 3) Riesige, nicht entschlüsselbare Community-Umschläge bleiben nicht im Speicher
+        gross = um.Umschlag(um.NACHRICHT, mallory.meine_id, cid, os.urandom(16), 1, os.urandom(12), os.urandom(2 * 1024 * 1024))
+        ben.empfangen(gross.packen())
+        R.pruefe("Grosse unlesbare Community-Umschläge werden nicht gepuffert",
+                 sum(len(r) for r, *_ in ben._wartend) < 1024 * 1024)
+
+        # 4) Ein fremdes Manifest übernimmt nicht den Kanal einer anderen Community
+        eigene = mallory.community_erstellen("Falle", "💀")
+        bens_kanal = standard_kanal_id(cid)
+        ben.community_beitreten(mallory.einladung(eigene))
+        netz.zustellen()
+        boese = manifest_bauen(mallory.ich, eigene, "Falle", "💀",
+                               [{"id": standard_kanal_id(eigene), "name": "allgemein", "position": 0, "nur_admins": False},
+                                {"id": bens_kanal, "name": "geklaut", "position": 1, "nur_admins": False}],
+                               [], mallory._manifest(eigene)["version"] + 1)
+        mallory._manifest_uebernehmen(eigene, boese) if False else None
+        mallory._steuer_senden(standard_kanal_id(eigene), {"art": "manifest", "manifest": boese, "karte_von": mallory.karte()})
+        netz.zustellen()
+        R.pruefe("Ein Manifest kann keinen Kanal einer anderen Community an sich reissen",
+                 ben.db.kanal_holen(bens_kanal)["community_id"] == cid)
+
+        # 5) Alte Schlüssel-DM erneut eingespielt dreht den neuen Schlüssel nicht zurück
+        anna.kontakt_hinzufuegen(ben.meine_id)
+        netz.zustellen()
+        ben.anfrage_beantworten(anna.meine_id, True)
+        netz.zustellen()
+        mitgeschnitten = []
+        alt_ausgang = anna.ausgang
+        anna.ausgang = lambda a: (mitgeschnitten.append(a), alt_ausgang(a))
+        ben.text_senden(standard_kanal_id(cid), "Ich bin Mitglied")
+        netz.zustellen()
+        anna.community_code_erneuern(cid)
+        netz.zustellen()
+        erste = [a.bytes() for a in mitgeschnitten if a.an == ben.meine_id]
+        anna.community_code_erneuern(cid)
+        netz.zustellen()
+        anna.ausgang = alt_ausgang
+        for roh in erste:
+            ben.empfangen(roh)
+        R.pruefe("Eine alte Schlüssel-Nachricht dreht den Community-Schlüssel nicht zurück",
+                 ben.tresor.community_schluessel(cid) == anna.tresor.community_schluessel(cid))
+
+        # 6) Dateinamen ohne Steuer- und Richtungszeichen
+        quelle = Path(ordner) / "rechnung‮fdp.exe"
+        quelle.write_bytes(b"MZ")
+        nid = anna.datei_senden(ben.meine_id, quelle)
+        netz.zustellen()
+        name = [x for x in ben.nachrichten(anna.meine_id)[0] if x["id"] == nid][0]["datei"]["name"]
+        R.pruefe("Empfangene Dateinamen verlieren Richtungs-Steuerzeichen", "‮" not in name)
+
+        # 8) Wer nur eine Anfrage geschickt hat, erscheint mit ID-Kürzel
+        mallory.profil = None
+        mallory._profil = lambda: {"name": "Anna", "avatar_farbe": "#000"}
+        mallory.kontakt_hinzufuegen(ben.meine_id)
+        netz.zustellen()
+        R.pruefe("Ein Fremder mit offener Anfrage kann sich nicht als 'Anna' ausgeben",
+                 ben.name_von(mallory.meine_id) != "Anna")
+
+        # 10) Ein später Fehler überschreibt kein 'zugestellt'
+        nid = anna.text_senden(ben.meine_id, "Hallo")
+        netz.zustellen()
+        ben.quittungen_senden()
+        netz.zustellen()
+        anna.fehlgeschlagen(nid, "Zeitüberschreitung nach erfolgreichem Senden")
+        R.pruefe("Ein später Fehler macht aus 'zugestellt' kein 'fehler'",
+                 anna.db.nachricht_holen(nid)["status"] == "zugestellt")
+
+        # 12) Antwort auf eine Nachricht aus einer anderen Unterhaltung wird nicht verknüpft
+        fremd = ben.text_senden(standard_kanal_id(cid), "Community-Nachricht")
+        netz.zustellen()
+        n2 = anna.text_senden(ben.meine_id, "Antwort?", antwort_auf=fremd)
+        R.pruefe("Antworten verweisen nur auf Nachrichten derselben Unterhaltung",
+                 anna.db.nachricht_holen(n2)["antwort_auf"] is None)
+
+        # Blockieren
+        ben.kontakt_blockieren(mallory.meine_id)
+        mallory.kontakt_hinzufuegen(ben.meine_id) if False else None
+        u = um.anfrage_bauen(mallory.ich, mallory.karte(), ben.meine_id, typ=um.ANFRAGE)
+        ben.empfangen(u.packen())
+        R.pruefe("Blockierte können keine neue Anfrage stellen",
+                 ben.db.kontakt_holen(mallory.meine_id)["status"] == "blockiert")
+
+        for b in netz.boten.values():
+            b.db.close()
+
+    # 7) Neue Mitglieder laden auch ein von einem Admin geändertes Manifest
+    with tempfile.TemporaryDirectory() as ordner:
+        netz = SpielNetz()
+        anna = person(netz, "Anna", ordner)
+        ben = person(netz, "Ben", ordner)
+        carl = person(netz, "Carl", ordner)
+        cid = anna.community_erstellen("Club", "🎮")
+        ben.community_beitreten(anna.einladung(cid))
+        netz.zustellen()
+        anna._manifest_aendern(cid, lambda k, a, n, i: (k, [ben.meine_id], n, i))
+        netz.zustellen()
+        ben.kanal_anlegen(cid, "clips")
+        netz.zustellen()
+        anna_offline = netz.boten.pop("Anna")
+        carl.community_beitreten(anna.einladung(cid))
+        netz.zustellen()
+        netz.boten["Anna"] = anna_offline
+        R.pruefe("Ein Neuer bekommt auch ein Manifest, das ein Admin geändert hat",
+                 {k["name"] for c in carl.communities() if c["id"] == cid for k in c["kanaele"]} == {"allgemein", "clips"})
+        for b in netz.boten.values():
+            b.db.close()

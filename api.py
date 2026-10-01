@@ -294,8 +294,8 @@ class VP4Api:
 
     @_antwort
     @_bote_noetig
-    def nachrichten(self, unterhaltung, vor_ts=None):
-        liste, mehr = self._bote.nachrichten(unterhaltung, vor_ts)
+    def nachrichten(self, unterhaltung, vor_ts=None, vor_id=None):
+        liste, mehr = self._bote.nachrichten(unterhaltung, vor_ts, vor_id=vor_id)
         return {"liste": liste, "mehr": mehr}
 
     @_antwort
@@ -394,6 +394,11 @@ class VP4Api:
 
     @_antwort
     @_bote_noetig
+    def kontakt_blockieren(self, kontakt_id):
+        self._bote.kontakt_blockieren(kontakt_id)
+
+    @_antwort
+    @_bote_noetig
     def kontakt_info(self, kontakt_id):
         return self._bote.kontakt_info(kontakt_id)
 
@@ -487,15 +492,36 @@ class VP4Api:
 
     @_antwort
     @_bote_noetig
-    def datei_oeffnen(self, nachricht_id):
+    def datei_oeffnen(self, nachricht_id, bestaetigt=False):
+        from kern.nachrichten import AUSFUEHRBAR, _dateiname_saeubern
         pfad, name = self._anhang_pfad(nachricht_id)
-        # Mit echtem Namen in einen Ordner kopieren - Programme brauchen die Endung
+        name = _dateiname_saeubern(name)
+        if Path(name).suffix.lower() in AUSFUEHRBAR and not bestaetigt:
+            return {"ok": False, "warnung":
+                    f"„{name}“ ist ein Programm oder Skript. Öffnen heisst: Es läuft auf deinem PC – "
+                    "mit allen Rechten, die du hast. Öffne so etwas nur, wenn du genau weisst, was es ist.",
+                    "fehler": ""}
+        # Mit echtem Namen in einen Ordner kopieren - Programme brauchen die Endung.
+        # Beim Sperren wird der Ordner wieder geleert.
         ziel_ordner = self._dienst.ordner / "geoeffnet"
         ziel_ordner.mkdir(exist_ok=True)
-        ziel = ziel_ordner / Path(name).name
+        ziel = ziel_ordner / name
         import shutil
         shutil.copyfile(pfad, ziel)
+        self._aus_dem_internet_markieren(ziel)
         self._oeffnen(ziel)
+
+    @staticmethod
+    def _aus_dem_internet_markieren(pfad):
+        """Wie ein Browser-Download markieren (Zone.Identifier) - dann warnt
+        Windows selbst (SmartScreen, geschützte Ansicht in Office)."""
+        if sys.platform != "win32":
+            return
+        try:
+            with open(str(pfad) + ":Zone.Identifier", "w", encoding="ascii") as f:
+                f.write("[ZoneTransfer]\r\nZoneId=3\r\n")
+        except OSError:
+            pass
 
     @_antwort
     @_bote_noetig
@@ -505,6 +531,7 @@ class VP4Api:
         if ziel:
             import shutil
             shutil.copyfile(pfad, ziel)
+            self._aus_dem_internet_markieren(ziel)
             return {"ziel": str(ziel)}
 
     # =================================================================
